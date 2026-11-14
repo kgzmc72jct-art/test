@@ -1,0 +1,1164 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Extraits">
+<meta name="theme-color" content="#7a3e2a">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Mes Extraits</title>
+<style>
+  :root {
+    --bg: #faf4e8; --card: #ffffff; --ink: #2b211c; --muted: #8a7a6e;
+    --accent: #7a3e2a; --accent-ink: #fff; --line: #e8dccb; --chip: #f1e6d4; --danger: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1714; --card: #26201c; --ink: #f1e9df; --muted: #a8998c;
+      --accent: #d08a6a; --accent-ink: #1b1714; --line: #3a312b; --chip: #352c26; --danger: #ff8a80;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+  body { padding: env(safe-area-inset-top) 0 calc(90px + env(safe-area-inset-bottom)); }
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg);
+    padding: 12px 16px 8px; border-bottom: 1px solid var(--line); }
+  .row { display: flex; align-items: center; gap: 8px; }
+  h1 { font-size: 22px; margin: 0; flex: 1; font-family: Georgia, "Times New Roman", serif; }
+  input, textarea, select { font: inherit; color: var(--ink); background: var(--card);
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; }
+  textarea { min-height: 90px; resize: vertical; }
+  #fText { min-height: 160px; font-family: Georgia, serif; }
+  button { font: inherit; border: 0; border-radius: 10px; padding: 10px 14px;
+    background: var(--chip); color: var(--ink); cursor: pointer; }
+  button:disabled { opacity: .6; }
+  button.primary { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  button.icon { padding: 8px 10px; background: transparent; font-size: 20px; }
+  button.small { padding: 6px 10px; font-size: 14px; }
+  .search { margin-top: 10px; }
+  .modes { display: flex; gap: 6px; margin-top: 10px; overflow-x: auto; }
+  .modes button { padding: 6px 12px; font-size: 14px; white-space: nowrap; }
+  .modes button.on { background: var(--accent); color: var(--accent-ink); }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .chip { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: var(--chip); color: var(--ink); }
+  .chip.on { background: var(--accent); color: var(--accent-ink); }
+  .status { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 1em; }
+  main { padding: 8px 16px; }
+  details.group { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    margin: 10px 0; overflow: hidden; }
+  details.group > summary { list-style: none; padding: 12px 14px; font-weight: 600; display: flex; gap: 8px; }
+  details.group > summary::-webkit-details-marker { display: none; }
+  details.group > summary .count { margin-left: auto; color: var(--muted); font-weight: 400; }
+  .book { padding: 0 14px 12px; }
+  .book h3 { margin: 6px 0 8px; font-size: 15px; font-style: italic; font-family: Georgia, serif; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+  .thumb { position: relative; aspect-ratio: 3/4; border-radius: 8px; overflow: hidden; background: var(--chip); padding: 0; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb img:not([src]) { visibility: hidden; }
+  .thumb span { position: absolute; left: 0; right: 0; bottom: 0; font-size: 11px; padding: 3px 5px;
+    background: linear-gradient(transparent, rgba(0,0,0,.65)); color: #fff; text-align: left; }
+  .empty { text-align: center; color: var(--muted); padding: 60px 20px; }
+  .fab { position: fixed; right: 20px; bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 6;
+    width: 60px; height: 60px; border-radius: 50%; font-size: 30px; line-height: 1;
+    background: var(--accent); color: var(--accent-ink); box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+  .sheet { position: fixed; inset: 0; z-index: 10; background: var(--bg); overflow-y: auto;
+    padding: calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 24px); display: none; }
+  .sheet.open { display: block; }
+  .sheet.top { z-index: 15; }
+  .sheet .bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .sheet .bar h2 { flex: 1; margin: 0; font-size: 18px; text-align: center; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  .label-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin: 12px 0 4px; }
+  .label-row label { margin: 0; }
+  .previews { display: flex; gap: 8px; overflow-x: auto; margin-top: 8px; }
+  .previews img { height: 120px; border-radius: 8px; }
+  .previews.big img { height: auto; width: 100%; }
+  /* Laisse iOS proposer « Texte en direct » sur les photos */
+  .previews img, .detail-img { -webkit-touch-callout: default; -webkit-user-select: auto; user-select: auto; }
+  .help { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 10px; font-size: 14px; }
+  .help summary { font-weight: 600; cursor: pointer; }
+  .help ol { margin: 8px 0 0; padding-left: 20px; }
+  .help li { margin: 4px 0; }
+  .photo-btn { width: 100%; padding: 18px; border: 2px dashed var(--line); background: var(--card); }
+  .detail-img { width: 100%; border-radius: 10px; display: block; min-height: 120px; background: var(--chip); }
+  .meta { margin: 14px 0; }
+  .meta .t { font-family: Georgia, serif; font-size: 20px; font-style: italic; }
+  .meta .a { color: var(--muted); margin-top: 2px; }
+  .note { white-space: pre-wrap; background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px; margin: 10px 0; }
+  .quote { white-space: pre-wrap; font-family: Georgia, serif; font-size: 17px; line-height: 1.5;
+    border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; margin: 14px 0; }
+  .section-title { font-size: 13px; color: var(--muted); margin-top: 16px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .actions button { flex: 1; }
+  .hint { font-size: 13px; color: var(--muted); }
+  .error { color: var(--danger); font-size: 14px; min-height: 1em; margin-top: 8px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; z-index: 40;
+    font-size: 14px; opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 90vw; text-align: center; }
+  .toast.show { opacity: 1; }
+  .zoom { position: fixed; inset: 0; z-index: 30; background: #000; overflow: auto; display: none; }
+  .zoom.open { display: block; }
+  .zoom img { width: 100%; display: block; margin-top: env(safe-area-inset-top); }
+  .zoom button { position: fixed; top: calc(env(safe-area-inset-top) + 10px); right: 12px; background: rgba(0,0,0,.6); color: #fff; }
+  .login { max-width: 420px; margin: 40px auto 0; }
+  .login h2 { font-family: Georgia, serif; text-align: center; font-size: 26px; }
+  code { background: var(--chip); padding: 1px 5px; border-radius: 4px; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="row">
+    <h1>📚 Mes Extraits</h1>
+    <button class="icon" id="btnSettings" aria-label="Réglages et sauvegarde">⚙︎</button>
+  </div>
+  <input class="search" id="search" type="search" placeholder="Rechercher (texte, auteur, livre, tag…)">
+  <div class="modes" id="modes">
+    <button data-mode="author" class="on">Par auteur</button>
+    <button data-mode="book">Par livre</button>
+    <button data-mode="recent">Récents</button>
+  </div>
+  <div class="tags" id="tagBar"></div>
+  <div class="status" id="status"></div>
+</header>
+
+<main id="list"></main>
+
+<button class="fab" id="btnAdd" aria-label="Ajouter un extrait">+</button>
+
+<!-- Formulaire ajout / modification -->
+<section class="sheet" id="formSheet">
+  <div class="bar">
+    <button id="formCancel">Annuler</button>
+    <h2 id="formTitle">Nouvel extrait</h2>
+    <button class="primary" id="formSave">Enregistrer</button>
+  </div>
+  <input type="file" id="fileInput" accept="image/*" multiple hidden>
+  <button class="photo-btn" id="btnPhoto">📷 Prendre / choisir une photo</button>
+  <div class="hint" id="photoHint" style="margin-top:6px">Plusieurs photos possibles : un extrait sera créé par photo, avec les mêmes infos.</div>
+  <div class="previews" id="previews"></div>
+
+  <div id="textBlock">
+    <div class="label-row">
+      <label for="fText">Texte de l'extrait</label>
+      <span>
+        <button class="small" id="btnAi" type="button">✨ Lire le texte</button>
+        <button class="small" id="btnPaste" type="button">📋 Coller</button>
+      </span>
+    </div>
+    <textarea id="fText" placeholder="Le texte de la photo est lu automatiquement par l'IA. Vous pouvez le corriger."></textarea>
+    <details class="help" id="liveHelp">
+      <summary>Astuces pour une bonne lecture</summary>
+      <ol>
+        <li>Photographiez la page <b>bien éclairée</b>, sans reflet ni flou. Une page courbée ou en biais est acceptée.</li>
+        <li>Pour ne garder qu'un passage, <b>soulignez-le ou encadrez-le</b> au crayon : seule cette partie sera transcrite.</li>
+        <li><b>✨ Lire le texte</b> relance la lecture (environ 1 centime par photo).</li>
+        <li><b>📋 Coller</b> ajoute un texte copié ailleurs (par ex. avec « Texte en direct » de l'app Photos).</li>
+      </ol>
+    </details>
+  </div>
+  <div class="hint" id="multiHint" style="display:none;margin-top:10px">✨ Le texte de chaque photo est lu automatiquement et enregistré dans son extrait.</div>
+  <div class="hint" id="ocrStatus"></div>
+
+  <label for="fAuthor">Auteur</label>
+  <input id="fAuthor" list="authorsList" autocomplete="off" placeholder="ex. Marguerite Yourcenar">
+  <datalist id="authorsList"></datalist>
+
+  <label for="fTitle">Titre du livre</label>
+  <input id="fTitle" list="titlesList" autocomplete="off" placeholder="ex. Mémoires d'Hadrien">
+  <datalist id="titlesList"></datalist>
+
+  <div class="two">
+    <div>
+      <label for="fPage">Page</label>
+      <input id="fPage" inputmode="numeric" placeholder="ex. 42">
+    </div>
+    <div>
+      <label for="fDate">Date de lecture</label>
+      <input id="fDate" type="date">
+    </div>
+  </div>
+
+  <label for="fTags">Thèmes / tags (séparés par des virgules)</label>
+  <input id="fTags" list="tagsList" autocomplete="off" placeholder="ex. amour, temps, citation">
+  <datalist id="tagsList"></datalist>
+
+  <label for="fNote">Note personnelle</label>
+  <textarea id="fNote" placeholder="Ce qui m'a marqué…"></textarea>
+</section>
+
+<!-- Détail d'un extrait -->
+<section class="sheet" id="detailSheet">
+  <div class="bar">
+    <button id="detailClose">‹ Retour</button>
+    <h2></h2>
+    <span style="width:70px"></span>
+  </div>
+  <img class="detail-img" id="dImg" alt="Extrait">
+  <div class="hint" style="text-align:center;margin-top:4px">Touchez la photo pour l'agrandir</div>
+  <div class="meta">
+    <div class="t" id="dTitle"></div>
+    <div class="a" id="dAuthor"></div>
+    <div class="hint" id="dInfo"></div>
+    <div class="tags" id="dTags"></div>
+  </div>
+  <div class="quote" id="dText"></div>
+  <div id="dNoteBlock">
+    <div class="section-title">Ma note</div>
+    <div class="note" id="dNote"></div>
+  </div>
+  <div class="actions">
+    <button id="dCopy">Copier le texte</button>
+    <button id="dShare">Partager</button>
+    <button id="dEdit">Modifier</button>
+  </div>
+  <div class="actions"><button class="danger" id="dDelete">Supprimer</button></div>
+</section>
+
+<!-- Réglages / sauvegarde -->
+<section class="sheet" id="settingsSheet">
+  <div class="bar">
+    <button id="settingsClose">‹ Retour</button>
+    <h2>Réglages</h2>
+    <span style="width:70px"></span>
+  </div>
+  <p id="stats" class="hint"></p>
+  <p id="account" class="hint"></p>
+  <p>Vos extraits sont enregistrés dans votre base <b>Supabase</b> : ils sont conservés même si vous changez de téléphone.</p>
+  <p class="hint">Le forfait gratuit de Supabase ne fait pas de sauvegarde automatique : exportez de temps en temps une copie dans Fichiers / iCloud Drive.</p>
+  <div class="actions"><button class="primary" id="btnExport">⬇︎ Préparer une sauvegarde</button></div>
+  <div class="actions"><button id="btnImport">⬆︎ Importer une sauvegarde</button></div>
+  <input type="file" id="importInput" accept=".json,application/json" hidden>
+  <p class="hint" id="lastBackup"></p>
+  <div class="actions"><button class="danger" id="btnLogout">Se déconnecter</button></div>
+</section>
+
+<!-- Connexion -->
+<section class="sheet top" id="loginSheet">
+  <form class="login" id="loginForm">
+    <h2>📚 Mes Extraits</h2>
+    <label for="lEmail">E-mail</label>
+    <input id="lEmail" type="email" autocomplete="username" required>
+    <label for="lPassword">Mot de passe</label>
+    <input id="lPassword" type="password" autocomplete="current-password" required>
+    <div class="actions"><button class="primary" type="submit" id="lSubmit">Se connecter</button></div>
+    <div class="error" id="lError"></div>
+    <p class="hint">Le compte se crée une seule fois dans Supabase (voir le guide README).</p>
+  </form>
+</section>
+
+<!-- Configuration manquante -->
+<section class="sheet top" id="setupSheet">
+  <div class="login">
+    <h2>Configuration Supabase manquante</h2>
+    <p>Ouvrez le fichier <code>config.js</code> et remplacez les valeurs <code>VOTRE-…</code> par l'URL et la clé « anon » / « publishable » de votre projet Supabase (Project Settings → API).</p>
+    <p>Puis republiez l'application. Les étapes sont détaillées dans le fichier <code>README.md</code>.</p>
+  </div>
+</section>
+
+<div class="zoom" id="zoom"><button id="zoomClose">Fermer ✕</button><img id="zoomImg" alt=""></div>
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<script>
+'use strict';
+
+const BUCKET = 'extraits';
+const TABLE = 'extraits';
+
+/* ---------- Supabase ---------- */
+const CFG = window.APP_CONFIG || {};
+const configured = !!(CFG.supabaseUrl && CFG.supabaseAnonKey && !/VOTRE/.test(CFG.supabaseUrl + CFG.supabaseAnonKey));
+const sb = configured && window.supabase ? window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey) : null;
+let user = null;
+
+/* ---------- Cache local (IndexedDB) : lecture rapide et hors connexion ---------- */
+let cacheDbPromise = null;
+
+function cacheDb() {
+  if (!cacheDbPromise) {
+    cacheDbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open('extraits-cache', 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains('blobs')) db.createObjectStore('blobs');
+        if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  return cacheDbPromise;
+}
+
+async function cacheOp(store, mode, fn) {
+  const db = await cacheDb();
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(store, mode);
+    const req = fn(t.objectStore(store));
+    t.oncomplete = () => resolve(req ? req.result : undefined);
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error);
+  });
+}
+
+const cacheGet = (store, key) => cacheOp(store, 'readonly', (s) => s.get(key));
+const cachePut = (store, key, val) => cacheOp(store, 'readwrite', (s) => s.put(val, key));
+const cacheDel = (store, key) => cacheOp(store, 'readwrite', (s) => s.delete(key));
+const cacheClear = (store) => cacheOp(store, 'readwrite', (s) => s.clear());
+
+/* ---------- Photos : téléchargement avec cache ---------- */
+const inflight = new Map();
+
+function getBlob(path) {
+  if (inflight.has(path)) return inflight.get(path);
+  const p = (async () => {
+    const cached = await cacheGet('blobs', path).catch(() => null);
+    if (cached) return cached;
+    if (!sb) throw new Error('hors connexion');
+    const { data, error } = await sb.storage.from(BUCKET).download(path);
+    if (error) throw error;
+    await cachePut('blobs', path, data).catch(() => {});
+    return data;
+  })();
+  inflight.set(path, p);
+  p.catch(() => {}).finally(() => inflight.delete(path));
+  return p;
+}
+
+// Miniatures : 4 téléchargements en parallèle au maximum
+const thumbUrls = new Map();
+const thumbQueue = [];
+let thumbActive = 0;
+
+function showThumb(path, url) {
+  document.querySelectorAll('img[data-path]').forEach((img) => { if (img.dataset.path === path) img.src = url; });
+}
+
+function pumpThumbs() {
+  while (thumbActive < 4 && thumbQueue.length) {
+    const path = thumbQueue.shift();
+    if (thumbUrls.has(path)) { showThumb(path, thumbUrls.get(path)); continue; }
+    thumbActive++;
+    getBlob(path)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        thumbUrls.set(path, url);
+        showThumb(path, url);
+      })
+      .catch(() => {})
+      .finally(() => { thumbActive--; pumpThumbs(); });
+  }
+}
+
+function loadThumbs() {
+  thumbQueue.length = 0;
+  document.querySelectorAll('#list img[data-path]').forEach((img) => {
+    const path = img.dataset.path;
+    if (thumbUrls.has(path)) img.src = thumbUrls.get(path);
+    else if (!thumbQueue.includes(path)) thumbQueue.push(path);
+  });
+  pumpThumbs();
+}
+
+async function uploadBlob(path, blob) {
+  const { error } = await sb.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+  if (error) throw error;
+  await cachePut('blobs', path, blob).catch(() => {});
+}
+
+async function uploadPhoto(photo) {
+  const base = `${user.id}/${crypto.randomUUID()}`;
+  await uploadBlob(base + '.jpg', photo.image);
+  await uploadBlob(base + '_t.jpg', photo.thumb);
+  return { image_path: base + '.jpg', thumb_path: base + '_t.jpg' };
+}
+
+async function removeFiles(paths) {
+  paths = paths.filter(Boolean);
+  if (!paths.length) return;
+  await sb.storage.from(BUCKET).remove(paths).catch(() => {});
+  for (const p of paths) {
+    await cacheDel('blobs', p).catch(() => {});
+    if (thumbUrls.has(p)) { URL.revokeObjectURL(thumbUrls.get(p)); thumbUrls.delete(p); }
+  }
+}
+
+/* ---------- Images ---------- */
+function loadImage(blob) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image illisible')); };
+    img.src = url;
+  });
+}
+
+function resize(img, maxSide, quality) {
+  const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.round(img.naturalWidth * scale);
+  const h = Math.round(img.naturalHeight * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+}
+
+async function processPhoto(file) {
+  const img = await loadImage(file);
+  const image = await resize(img, 1800, 0.82);
+  const thumb = await resize(img, 360, 0.7);
+  return { image, thumb };
+}
+
+/* ---------- Lecture du texte par l'IA (fonction Supabase « lire-texte ») ---------- */
+let aiUnavailable = false;
+let aiChain = Promise.resolve();
+
+async function readWithAI(blob) {
+  const image = (await blobToDataURL(blob)).split(',')[1];
+  const { data, error } = await sb.functions.invoke('lire-texte', { body: { image } });
+  if (error) {
+    let msg = error.message;
+    const status = error.context && error.context.status;
+    try { msg = (await error.context.json()).error || msg; } catch (e) { /* réponse non JSON */ }
+    if (status === 404) {
+      aiUnavailable = true;
+      msg = "Fonction « lire-texte » non installée dans Supabase (voir README)";
+    }
+    throw new Error(msg);
+  }
+  return { texte: (data.texte || '').trim(), page: (data.page || '').trim() };
+}
+
+// Une photo à la fois, pour afficher la progression et ménager le crédit
+function queueAI(photo, label) {
+  const job = aiChain.then(async () => {
+    if (aiUnavailable) throw new Error('Lecture IA indisponible');
+    $('ocrStatus').textContent = '✨ Lecture du texte' + (label ? ' ' + label : '') + '…';
+    return readWithAI(photo.image);
+  });
+  aiChain = job.catch(() => {});
+  return job;
+}
+
+function startAI(photo) {
+  const label = pendingPhotos.length > 1 ? `(${pendingPhotos.indexOf(photo) + 1}/${pendingPhotos.length})` : '';
+  photo.aiPromise = queueAI(photo, label)
+    .then((r) => {
+      photo.text = r.texte;
+      photo.page = r.page;
+      if (pendingPhotos.length === 1 && pendingPhotos[0] === photo) {
+        if (!$('fText').value.trim()) $('fText').value = r.texte;
+        if (!$('fPage').value.trim() && r.page) $('fPage').value = r.page;
+      }
+    })
+    .catch((e) => {
+      photo.text = '';
+      photo.aiError = e.message;
+    })
+    .finally(() => {
+      if (!pendingPhotos.includes(photo)) return;
+      const done = pendingPhotos.filter((p) => p.text !== undefined);
+      const failed = pendingPhotos.filter((p) => p.aiError);
+      if (done.length === pendingPhotos.length) {
+        $('ocrStatus').textContent = failed.length ? '⚠️ ' + failed[0].aiError : '✓ Texte lu — pensez à le relire.';
+      }
+    });
+}
+
+/* ---------- Texte collé ---------- */
+// Recolle les lignes d'un même paragraphe et les mots coupés en fin de ligne
+function cleanText(text) {
+  return (text || '')
+    .replace(/\r/g, '')
+    .replace(/-\n(?=\p{Ll})/gu, '')
+    .replace(/([^\n])\n(?!\n)/g, '$1 ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/* ---------- Utilitaires ---------- */
+const $ = (id) => document.getElementById(id);
+const norm = (s) => (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const esc = (s) => (s || '').toString().replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const parseTags = (s) => [...new Set((s || '').split(',').map((t) => t.trim()).filter(Boolean))];
+const collator = new Intl.Collator('fr', { sensitivity: 'base' });
+const time = (iso) => new Date(iso).getTime() || 0;
+
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+function setStatus(msg) { $('status').textContent = msg || ''; }
+
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function canWrite() {
+  if (!sb || !user || !navigator.onLine) { toast('Connexion internet requise'); return false; }
+  return true;
+}
+
+function errMsg(e) { return (e && e.message) || 'erreur inconnue'; }
+
+/* ---------- État ---------- */
+let items = [];
+let mode = 'author';
+let activeTag = null;
+let editing = null;     // extrait en cours de modification
+let pendingPhotos = []; // photos choisies dans le formulaire : { image, thumb, aiPromise, text, page }
+let current = null;     // extrait affiché en détail
+
+async function fetchAll() {
+  const out = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await sb.from(TABLE).select('*').order('created_at', { ascending: false }).range(from, from + PAGE - 1);
+    if (error) throw error;
+    out.push(...data);
+    if (data.length < PAGE) break;
+  }
+  return out;
+}
+
+async function refresh() {
+  if (!sb || !user) return;
+  setStatus('Synchronisation…');
+  try {
+    items = await fetchAll();
+    await cachePut('kv', 'rows', items).catch(() => {});
+    setStatus('');
+  } catch (e) {
+    setStatus('Hors connexion : affichage des données enregistrées sur le téléphone.');
+  }
+  render();
+  fillDatalists();
+}
+
+async function showCached() {
+  const rows = await cacheGet('kv', 'rows').catch(() => null);
+  if (rows) { items = rows; render(); fillDatalists(); }
+}
+
+function setItem(row) {
+  const i = items.findIndex((x) => x.id === row.id);
+  if (i >= 0) items[i] = row; else items.unshift(row);
+  cachePut('kv', 'rows', items).catch(() => {});
+  render();
+  fillDatalists();
+}
+
+/* ---------- Liste ---------- */
+function matches(it, q) {
+  if (activeTag && !(it.tags || []).includes(activeTag)) return false;
+  if (!q) return true;
+  return norm([it.author, it.title, it.ocr_text, it.note, it.page, (it.tags || []).join(' ')].join(' ')).includes(q);
+}
+
+function thumbHTML(it, label) {
+  return `<button class="thumb" data-id="${esc(it.id)}"><img data-path="${esc(it.thumb_path)}" alt="">${label ? `<span>${esc(label)}</span>` : ''}</button>`;
+}
+
+function groupBy(list, keyFn) {
+  const map = new Map();
+  for (const it of list) {
+    const k = keyFn(it);
+    if (!map.has(k)) map.set(k, []);
+    map.get(k).push(it);
+  }
+  return [...map.entries()].sort((a, b) => collator.compare(a[0], b[0]));
+}
+
+const byPage = (a, b) => (parseInt(a.page, 10) || 1e9) - (parseInt(b.page, 10) || 1e9) || time(a.created_at) - time(b.created_at);
+const pageLabel = (it) => (it.page ? 'p. ' + it.page : '');
+
+function render() {
+  const allTags = [...new Set(items.flatMap((i) => i.tags || []))].sort(collator.compare);
+  if (activeTag && !allTags.includes(activeTag)) activeTag = null;
+  $('tagBar').innerHTML = allTags.map((t) => `<button class="chip ${t === activeTag ? 'on' : ''}" data-tag="${esc(t)}">#${esc(t)}</button>`).join('');
+
+  const q = norm($('search').value);
+  const list = items.filter((it) => matches(it, q));
+  const main = $('list');
+
+  if (!items.length) {
+    main.innerHTML = `<div class="empty"><p style="font-size:40px;margin:0">📖</p><p>Aucun extrait pour l'instant.</p><p>Touchez <b>+</b> pour photographier votre premier passage.</p></div>`;
+    return;
+  }
+  if (!list.length) {
+    main.innerHTML = `<div class="empty">Aucun résultat.</div>`;
+    return;
+  }
+
+  const openAll = !!q || !!activeTag;
+  if (mode === 'recent') {
+    const sorted = [...list].sort((a, b) => time(b.created_at) - time(a.created_at));
+    main.innerHTML = `<div class="grid" style="margin-top:10px">${sorted.map((it) => thumbHTML(it, it.title || it.author)).join('')}</div>`;
+  } else if (mode === 'book') {
+    main.innerHTML = groupBy(list, (it) => it.title || 'Sans titre').map(([title, arr]) => `
+      <details class="group" ${openAll ? 'open' : ''}>
+        <summary><span><i>${esc(title)}</i><br><small style="font-weight:400;color:var(--muted)">${esc([...new Set(arr.map((i) => i.author).filter(Boolean))].join(', '))}</small></span><span class="count">${arr.length}</span></summary>
+        <div class="book"><div class="grid">${arr.sort(byPage).map((it) => thumbHTML(it, pageLabel(it))).join('')}</div></div>
+      </details>`).join('');
+  } else {
+    main.innerHTML = groupBy(list, (it) => it.author || 'Auteur inconnu').map(([author, arr]) => `
+      <details class="group" ${openAll ? 'open' : ''}>
+        <summary><span>${esc(author)}</span><span class="count">${arr.length}</span></summary>
+        ${groupBy(arr, (it) => it.title || 'Sans titre').map(([title, books]) => `
+          <div class="book"><h3>${esc(title)}</h3>
+            <div class="grid">${books.sort(byPage).map((it) => thumbHTML(it, pageLabel(it))).join('')}</div>
+          </div>`).join('')}
+      </details>`).join('');
+  }
+  loadThumbs();
+}
+
+function fillDatalists() {
+  const uniq = (arr) => [...new Set(arr.filter(Boolean))].sort(collator.compare);
+  const opts = (arr) => arr.map((v) => `<option value="${esc(v)}">`).join('');
+  $('authorsList').innerHTML = opts(uniq(items.map((i) => i.author)));
+  $('titlesList').innerHTML = opts(uniq(items.map((i) => i.title)));
+  $('tagsList').innerHTML = opts(uniq(items.flatMap((i) => i.tags || [])));
+}
+
+$('search').addEventListener('input', render);
+$('modes').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-mode]');
+  if (!b) return;
+  mode = b.dataset.mode;
+  document.querySelectorAll('#modes button').forEach((x) => x.classList.toggle('on', x === b));
+  render();
+});
+$('tagBar').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tag]');
+  if (!b) return;
+  activeTag = activeTag === b.dataset.tag ? null : b.dataset.tag;
+  render();
+});
+$('list').addEventListener('click', (e) => {
+  const b = e.target.closest('.thumb');
+  if (b) openDetail(b.dataset.id);
+});
+// Ouvrir un groupe charge ses miniatures
+$('list').addEventListener('toggle', loadThumbs, true);
+
+/* ---------- Feuilles (écrans) ---------- */
+function openSheet(id) { $(id).classList.add('open'); $(id).scrollTop = 0; document.body.style.overflow = 'hidden'; }
+function closeSheet(id) { $(id).classList.remove('open'); if (!document.querySelector('.sheet.open')) document.body.style.overflow = ''; }
+
+/* ---------- Formulaire ---------- */
+function clearPreviews() {
+  $('previews').querySelectorAll('img').forEach((img) => URL.revokeObjectURL(img.src));
+  $('previews').innerHTML = '';
+}
+
+function addPreview(blob) {
+  const img = document.createElement('img');
+  img.src = URL.createObjectURL(blob);
+  $('previews').appendChild(img);
+}
+
+// Une seule photo : affichée en grand pour pouvoir sélectionner son texte
+function showPreviews() {
+  clearPreviews();
+  const single = editing ? pendingPhotos.length <= 1 : pendingPhotos.length === 1;
+  $('previews').classList.toggle('big', single);
+  if (pendingPhotos.length) pendingPhotos.forEach((p) => addPreview(single ? p.image : p.thumb));
+  else if (editing) getBlob(editing.image_path).then((b) => { if (!pendingPhotos.length) addPreview(b); }).catch(() => {});
+}
+
+function updateTextBlock() {
+  const multi = !editing && pendingPhotos.length > 1;
+  $('textBlock').style.display = multi ? 'none' : '';
+  $('multiHint').style.display = multi ? '' : 'none';
+}
+
+function openForm(item) {
+  if (!canWrite()) return;
+  editing = item || null;
+  pendingPhotos = [];
+  clearPreviews();
+  $('formTitle').textContent = item ? "Modifier l'extrait" : 'Nouvel extrait';
+  $('fileInput').multiple = !item;
+  $('photoHint').style.display = item ? 'none' : '';
+  $('btnPhoto').textContent = item ? '📷 Remplacer la photo' : '📷 Prendre / choisir une photo';
+  $('ocrStatus').textContent = '';
+
+  // Pré-remplir avec le dernier livre saisi pour gagner du temps
+  const last = item || [...items].sort((a, b) => time(b.created_at) - time(a.created_at))[0] || {};
+  $('fAuthor').value = last.author || '';
+  $('fTitle').value = last.title || '';
+  $('fPage').value = item ? item.page || '' : '';
+  $('fDate').value = item ? item.read_date || '' : new Date().toISOString().slice(0, 10);
+  $('fTags').value = item ? (item.tags || []).join(', ') : '';
+  $('fNote').value = item ? item.note || '' : '';
+  $('fText').value = item ? item.ocr_text || '' : '';
+  $('liveHelp').open = !items.length;
+  $('btnAi').style.display = sb ? '' : 'none';
+  showPreviews();
+  updateTextBlock();
+  openSheet('formSheet');
+}
+
+$('btnAdd').addEventListener('click', () => openForm(null));
+$('btnPhoto').addEventListener('click', () => $('fileInput').click());
+$('fileInput').addEventListener('change', async (e) => {
+  const files = [...e.target.files];
+  e.target.value = '';
+  if (!files.length) return;
+  if (editing) pendingPhotos = [];
+  $('btnPhoto').disabled = true;
+  $('btnPhoto').textContent = '⏳ Traitement…';
+  try {
+    for (const f of files) {
+      const p = await processPhoto(f);
+      pendingPhotos.push(p);
+    }
+  } catch (err) {
+    toast('Impossible de lire cette image.');
+  }
+  showPreviews();
+  updateTextBlock();
+  if (!aiUnavailable) pendingPhotos.filter((p) => !p.aiPromise).forEach(startAI);
+  $('btnPhoto').disabled = false;
+  $('btnPhoto').textContent = editing ? '📷 Remplacer la photo' : '📷 Ajouter une autre photo';
+});
+
+$('btnAi').addEventListener('click', async () => {
+  if (!canWrite()) return;
+  let blob;
+  try {
+    blob = pendingPhotos[0] ? pendingPhotos[0].image : editing ? await getBlob(editing.image_path) : null;
+  } catch (e) { toast('Photo indisponible'); return; }
+  if (!blob) { toast("Ajoutez d'abord une photo."); return; }
+  if ($('fText').value.trim() && !confirm('Remplacer le texte actuel par une nouvelle lecture ?')) return;
+  aiUnavailable = false;
+  const btn = $('btnAi');
+  btn.disabled = true;
+  try {
+    const r = await queueAI({ image: blob }, '');
+    $('fText').value = r.texte;
+    if (!$('fPage').value.trim() && r.page) $('fPage').value = r.page;
+    $('ocrStatus').textContent = r.texte ? '✓ Texte lu — pensez à le relire.' : 'Aucun texte trouvé sur la photo.';
+  } catch (e) {
+    $('ocrStatus').textContent = '⚠️ ' + e.message;
+  }
+  btn.disabled = false;
+});
+
+$('btnPaste').addEventListener('click', async () => {
+  let text = '';
+  try {
+    text = await navigator.clipboard.readText();
+  } catch (e) {
+    $('fText').focus();
+    toast('Appui long dans le champ de texte, puis « Coller »');
+    return;
+  }
+  text = cleanText(text);
+  if (!text) { toast('Le presse-papiers est vide : copiez d\'abord le texte de la photo.'); return; }
+  const existing = $('fText').value.trim();
+  // Plusieurs copies successives s'ajoutent les unes aux autres
+  $('fText').value = existing ? existing + '\n\n' + text : text;
+  toast('Texte collé — pensez à le relire');
+});
+
+$('formCancel').addEventListener('click', () => { clearPreviews(); pendingPhotos = []; closeSheet('formSheet'); });
+
+$('formSave').addEventListener('click', async () => {
+  if (!canWrite()) return;
+  const data = {
+    author: $('fAuthor').value.trim(),
+    title: $('fTitle').value.trim(),
+    page: $('fPage').value.trim(),
+    read_date: $('fDate').value || null,
+    tags: parseTags($('fTags').value),
+    note: $('fNote').value.trim(),
+  };
+  if (!editing && !pendingPhotos.length) { toast('Ajoutez au moins une photo.'); return; }
+
+  const btn = $('formSave');
+  btn.disabled = true;
+  btn.textContent = '⏳';
+  const photos = pendingPhotos;
+  const wasEditing = editing;
+  try {
+    if (photos.some((p) => p.aiPromise && p.text === undefined)) {
+      btn.textContent = '⏳ Lecture du texte…';
+      await Promise.all(photos.map((p) => p.aiPromise));
+    }
+    if (wasEditing) {
+      const update = { ...data, ocr_text: $('fText').value.trim(), updated_at: new Date().toISOString() };
+      const oldPaths = [];
+      if (photos[0]) {
+        Object.assign(update, await uploadPhoto(photos[0]));
+        oldPaths.push(wasEditing.image_path, wasEditing.thumb_path);
+      }
+      const { data: row, error } = await sb.from(TABLE).update(update).eq('id', wasEditing.id).select().single();
+      if (error) throw error;
+      await removeFiles(oldPaths);
+      setItem(row);
+      current = row;
+    } else {
+      const base = Date.now();
+      for (let i = 0; i < photos.length; i++) {
+        btn.textContent = photos.length > 1 ? `⏳ ${i + 1}/${photos.length}` : '⏳';
+        const paths = await uploadPhoto(photos[i]);
+        const single = photos.length === 1;
+        const ocr_text = single ? $('fText').value.trim() : photos[i].text || '';
+        const page = single ? data.page : data.page || photos[i].page || '';
+        // Décalage d'1 ms pour garder l'ordre des photos
+        const created_at = new Date(base + i).toISOString();
+        const { data: row, error } = await sb.from(TABLE).insert({ ...data, ...paths, ocr_text, page, created_at }).select().single();
+        if (error) { await removeFiles([paths.image_path, paths.thumb_path]); throw error; }
+        setItem(row);
+      }
+    }
+  } catch (e) {
+    toast("Erreur d'enregistrement : " + errMsg(e));
+    btn.disabled = false; btn.textContent = 'Enregistrer';
+    return;
+  }
+  btn.disabled = false; btn.textContent = 'Enregistrer';
+  clearPreviews();
+  pendingPhotos = [];
+  closeSheet('formSheet');
+  if (wasEditing) showDetail(current);
+  toast(wasEditing ? 'Extrait modifié' : (photos.length > 1 ? photos.length + ' extraits ajoutés' : 'Extrait ajouté'));
+});
+
+/* ---------- Détail ---------- */
+let detailUrl = null;
+
+function openDetail(id) {
+  const it = items.find((i) => i.id === id);
+  if (!it) return;
+  showDetail(it);
+  openSheet('detailSheet');
+}
+
+function showDetail(it) {
+  current = it;
+  if (detailUrl) { URL.revokeObjectURL(detailUrl); detailUrl = null; }
+  $('dImg').removeAttribute('src');
+  getBlob(it.image_path).then((blob) => {
+    if (current !== it) return;
+    detailUrl = URL.createObjectURL(blob);
+    $('dImg').src = detailUrl;
+  }).catch(() => toast('Photo indisponible hors connexion'));
+  $('dTitle').textContent = it.title || 'Sans titre';
+  $('dAuthor').textContent = it.author || 'Auteur inconnu';
+  $('dInfo').textContent = [it.page && 'Page ' + it.page, it.read_date && 'Lu le ' + formatDate(it.read_date)].filter(Boolean).join(' · ');
+  $('dTags').innerHTML = (it.tags || []).map((t) => `<span class="chip">#${esc(t)}</span>`).join('');
+  $('dText').textContent = it.ocr_text || '';
+  $('dText').style.display = it.ocr_text ? '' : 'none';
+  $('dCopy').style.display = it.ocr_text ? '' : 'none';
+  $('dNote').textContent = it.note || '';
+  $('dNoteBlock').style.display = it.note ? '' : 'none';
+}
+
+function shareText(it) {
+  const ref = [it.author, it.title && '« ' + it.title + ' »', it.page && 'p. ' + it.page].filter(Boolean).join(', ');
+  return [it.ocr_text, ref && '— ' + ref].filter(Boolean).join('\n\n');
+}
+
+$('detailClose').addEventListener('click', () => closeSheet('detailSheet'));
+$('dEdit').addEventListener('click', () => openForm(current));
+$('dCopy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(shareText(current)); toast('Texte copié'); }
+  catch (e) { toast('Copie impossible'); }
+});
+$('dDelete').addEventListener('click', async () => {
+  if (!current || !canWrite() || !confirm('Supprimer définitivement cet extrait ?')) return;
+  const it = current;
+  const { error } = await sb.from(TABLE).delete().eq('id', it.id);
+  if (error) { toast('Suppression impossible : ' + errMsg(error)); return; }
+  await removeFiles([it.image_path, it.thumb_path]);
+  items = items.filter((x) => x.id !== it.id);
+  cachePut('kv', 'rows', items).catch(() => {});
+  render();
+  fillDatalists();
+  closeSheet('detailSheet');
+  toast('Extrait supprimé');
+});
+$('dShare').addEventListener('click', async () => {
+  if (!current) return;
+  const text = shareText(current);
+  try {
+    const blob = await getBlob(current.image_path);
+    const file = new File([blob], 'extrait.jpg', { type: 'image/jpeg' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], text });
+    else if (navigator.share) await navigator.share({ text });
+    else toast('Partage non disponible');
+  } catch (e) { /* partage annulé */ }
+});
+
+$('dImg').addEventListener('click', () => { if (detailUrl) { $('zoomImg').src = detailUrl; $('zoom').classList.add('open'); } });
+$('zoomClose').addEventListener('click', () => $('zoom').classList.remove('open'));
+
+/* ---------- Réglages : sauvegarde / restauration ---------- */
+const blobToDataURL = (blob) => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(r.result);
+  r.onerror = () => reject(r.error);
+  r.readAsDataURL(blob);
+});
+const dataURLToBlob = (url) => fetch(url).then((r) => r.blob());
+
+function updateStats() {
+  const n = items.length;
+  const authors = new Set(items.map((i) => i.author).filter(Boolean)).size;
+  const books = new Set(items.map((i) => i.title).filter(Boolean)).size;
+  $('stats').textContent = `${n} extrait${n > 1 ? 's' : ''}, ${books} livre${books > 1 ? 's' : ''}, ${authors} auteur${authors > 1 ? 's' : ''}.`;
+  $('account').textContent = user ? 'Connecté : ' + user.email : '';
+  let last = null;
+  try { last = localStorage.getItem('lastBackup'); } catch (e) { /* ignoré */ }
+  $('lastBackup').textContent = last ? 'Dernière sauvegarde : ' + formatDate(last) : 'Aucune sauvegarde effectuée pour le moment.';
+}
+
+let preparedBackup = null;
+const EXPORT_LABEL = '⬇︎ Préparer une sauvegarde';
+
+$('btnSettings').addEventListener('click', () => {
+  preparedBackup = null;
+  $('btnExport').textContent = EXPORT_LABEL;
+  updateStats();
+  openSheet('settingsSheet');
+});
+$('settingsClose').addEventListener('click', () => closeSheet('settingsSheet'));
+
+function saveBackup(file) {
+  // Appelé directement depuis un toucher : iOS exige un geste récent pour le partage
+  const markDone = () => {
+    try { localStorage.setItem('lastBackup', new Date().toISOString()); } catch (e) { /* ignoré */ }
+    preparedBackup = null;
+    $('btnExport').textContent = EXPORT_LABEL;
+    toast('Sauvegarde enregistrée');
+    updateStats();
+  };
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title: 'Sauvegarde Mes Extraits' })
+      .then(markDone)
+      .catch((e) => { if (e.name !== 'AbortError') toast('Partage impossible'); });
+  } else {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file);
+    a.download = file.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    markDone();
+  }
+}
+
+$('btnExport').addEventListener('click', async () => {
+  if (preparedBackup) { saveBackup(preparedBackup); return; }
+  if (!items.length) { toast('Rien à sauvegarder.'); return; }
+  const btn = $('btnExport');
+  btn.disabled = true;
+  try {
+    // Fichier construit morceau par morceau pour limiter la mémoire utilisée
+    const parts = [JSON.stringify({ app: 'mes-extraits', version: 2, exportedAt: new Date().toISOString() }).slice(0, -1) + ',"items":['];
+    for (let i = 0; i < items.length; i++) {
+      btn.textContent = `⏳ Préparation ${i + 1}/${items.length}…`;
+      const { image_path, thumb_path, user_id, ...rest } = items[i];
+      const image = await blobToDataURL(await getBlob(image_path));
+      const thumb = await blobToDataURL(await getBlob(thumb_path));
+      parts.push((i ? ',' : '') + JSON.stringify({ ...rest, image, thumb }));
+    }
+    parts.push(']}');
+    const name = `extraits-${new Date().toISOString().slice(0, 10)}.json`;
+    preparedBackup = new File(parts, name, { type: 'application/json' });
+    btn.textContent = '💾 Enregistrer la sauvegarde';
+    toast('Sauvegarde prête : touchez « Enregistrer »');
+  } catch (e) {
+    btn.textContent = EXPORT_LABEL;
+    toast("Échec de l'export : " + errMsg(e));
+  }
+  btn.disabled = false;
+});
+
+// Accepte les sauvegardes de la 1re version (stockage local) et de celle-ci
+function normalizeImported(it) {
+  return {
+    id: it.id,
+    author: it.author || '',
+    title: it.title || '',
+    page: it.page || '',
+    read_date: it.read_date || it.readDate || null,
+    tags: Array.isArray(it.tags) ? it.tags : [],
+    note: it.note || '',
+    ocr_text: it.ocr_text || '',
+    created_at: it.created_at || new Date(it.createdAt || Date.now()).toISOString(),
+  };
+}
+
+// list : [{ meta, image: Blob, thumb: Blob }]
+async function uploadItems(list, onProgress) {
+  const ids = new Set(items.map((i) => i.id));
+  const times = new Set(items.map((i) => time(i.created_at)));
+  let added = 0, skipped = 0;
+  for (let i = 0; i < list.length; i++) {
+    onProgress && onProgress(i + 1, list.length);
+    const { meta, image, thumb } = list[i];
+    if (ids.has(meta.id) || times.has(time(meta.created_at))) { skipped++; continue; }
+    const paths = await uploadPhoto({ image, thumb });
+    const { id, ...fields } = meta;
+    const { data: row, error } = await sb.from(TABLE).insert({ ...fields, ...paths }).select().single();
+    if (error) { await removeFiles([paths.image_path, paths.thumb_path]); throw error; }
+    setItem(row);
+    added++;
+  }
+  return { added, skipped };
+}
+
+$('btnImport').addEventListener('click', () => { if (canWrite()) $('importInput').click(); });
+$('importInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const btn = $('btnImport');
+  try {
+    const data = JSON.parse(await file.text());
+    if (data.app !== 'mes-extraits' || !Array.isArray(data.items)) throw new Error('format');
+    if (!confirm(`Importer ${data.items.length} extrait(s) ? Les extraits déjà présents sont conservés.`)) return;
+    btn.disabled = true;
+    const list = [];
+    for (const it of data.items) {
+      const image = await dataURLToBlob(it.image);
+      const thumb = it.thumb ? await dataURLToBlob(it.thumb) : image;
+      list.push({ meta: normalizeImported(it), image, thumb });
+    }
+    const { added, skipped } = await uploadItems(list, (i, n) => { btn.textContent = `⏳ Envoi ${i}/${n}…`; });
+    toast(`${added} extrait(s) importé(s)` + (skipped ? `, ${skipped} déjà présent(s)` : ''));
+    updateStats();
+  } catch (err) {
+    toast(err.message === 'format' ? 'Fichier de sauvegarde invalide' : "Erreur d'import : " + errMsg(err));
+  }
+  btn.disabled = false;
+  btn.textContent = '⬆︎ Importer une sauvegarde';
+});
+
+/* ---------- Reprise des extraits de la 1re version (stockés sur le téléphone) ---------- */
+function openOldDb() {
+  return new Promise((resolve) => {
+    const req = indexedDB.open('extraits-db');
+    // Si la base n'existait pas, on annule sa création
+    req.onupgradeneeded = () => req.transaction.abort();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  });
+}
+
+async function migrateOld() {
+  const db = await openOldDb();
+  if (!db) return;
+  if (!db.objectStoreNames.contains('items')) { db.close(); return; }
+  const old = await new Promise((resolve) => {
+    const r = db.transaction('items').objectStore('items').getAll();
+    r.onsuccess = () => resolve(r.result || []);
+    r.onerror = () => resolve([]);
+  });
+  db.close();
+  if (!old.length) return;
+  if (!confirm(`${old.length} extrait(s) de l'ancienne version sont sur ce téléphone. Les envoyer dans votre base Supabase ?`)) return;
+  try {
+    const { added } = await uploadItems(
+      old.map((it) => ({ meta: normalizeImported(it), image: it.image, thumb: it.thumb || it.image })),
+      (i, n) => setStatus(`Transfert des anciens extraits ${i}/${n}…`)
+    );
+    indexedDB.deleteDatabase('extraits-db');
+    setStatus('');
+    toast(`${added} ancien(s) extrait(s) transféré(s)`);
+  } catch (e) {
+    setStatus('');
+    toast('Transfert interrompu : ' + errMsg(e) + ' (il reprendra au prochain lancement)');
+  }
+}
+
+/* ---------- Connexion ---------- */
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('lError').textContent = '';
+  $('lSubmit').disabled = true;
+  const { data, error } = await sb.auth.signInWithPassword({ email: $('lEmail').value.trim(), password: $('lPassword').value });
+  $('lSubmit').disabled = false;
+  if (error) {
+    $('lError').textContent = /invalid/i.test(error.message) ? 'E-mail ou mot de passe incorrect.' : error.message;
+    return;
+  }
+  user = data.user;
+  $('lPassword').value = '';
+  closeSheet('loginSheet');
+  await refresh();
+  migrateOld();
+});
+
+$('btnLogout').addEventListener('click', async () => {
+  if (!confirm('Se déconnecter ? Les copies locales seront effacées de ce téléphone (vos extraits restent dans Supabase).')) return;
+  if (sb) await sb.auth.signOut().catch(() => {});
+  user = null;
+  items = [];
+  await cacheClear('blobs').catch(() => {});
+  await cacheClear('kv').catch(() => {});
+  thumbUrls.forEach((u) => URL.revokeObjectURL(u));
+  thumbUrls.clear();
+  render();
+  closeSheet('settingsSheet');
+  openSheet('loginSheet');
+});
+
+/* ---------- Démarrage ---------- */
+async function start() {
+  if (!configured) { openSheet('setupSheet'); return; }
+  if (!sb) {
+    // Bibliothèque Supabase non chargée (hors connexion) : lecture seule depuis le cache
+    await showCached();
+    setStatus('Hors connexion : lecture seule.');
+    return;
+  }
+  const { data, error } = await sb.auth.getSession();
+  if (!data.session) {
+    if (!navigator.onLine || error) {
+      // Session impossible à renouveler sans réseau : on affiche la copie locale
+      await showCached();
+      setStatus('Hors connexion : lecture seule.');
+      return;
+    }
+    openSheet('loginSheet');
+    return;
+  }
+  user = data.session.user;
+  await showCached();
+  await refresh();
+  migrateOld();
+}
+
+window.addEventListener('online', () => { if (user) refresh(); else if (configured && !$('loginSheet').classList.contains('open')) start().catch(() => {}); });
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+render();
+start().catch((e) => toast('Erreur au démarrage : ' + errMsg(e)));
+</script>
+</body>
+</html>
