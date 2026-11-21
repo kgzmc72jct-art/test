@@ -42,6 +42,20 @@
   button.icon { padding: 8px 10px; background: transparent; font-size: 20px; }
   button.small { padding: 6px 10px; font-size: 14px; }
   .search { margin-top: 10px; }
+  .tabs { display: flex; gap: 4px; margin-top: 10px; background: var(--chip); border-radius: 12px; padding: 3px; }
+  .tabs button { flex: 1; padding: 7px; font-size: 15px; background: transparent; border-radius: 9px; }
+  .tabs button.on { background: var(--card); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+  .letter { font-family: Georgia, serif; color: var(--accent); font-size: 18px; margin: 14px 0 2px; }
+  .word-row { display: block; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px 12px; margin: 6px 0; }
+  .word-row b { font-family: Georgia, serif; font-size: 17px; }
+  .word-row small { color: var(--muted); font-style: italic; font-size: 12px; margin-left: 6px; }
+  .word-row .def { display: block; color: var(--muted); font-size: 14px; margin-top: 2px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .group .word-row { margin: 6px 0; }
+  .word-title { font-family: Georgia, serif; font-size: 30px; margin: 4px 0 10px; overflow-wrap: anywhere; }
+  .definition { font-size: 17px; line-height: 1.5; white-space: pre-wrap; }
+  .quote mark { background: transparent; color: var(--accent); font-weight: 700; }
   .modes { display: flex; gap: 6px; margin-top: 10px; overflow-x: auto; }
   .modes button { padding: 6px 12px; font-size: 14px; white-space: nowrap; }
   .modes button.on { background: var(--accent); color: var(--accent-ink); }
@@ -123,12 +137,12 @@
     <h1>📚 Mes Extraits</h1>
     <button class="icon" id="btnSettings" aria-label="Réglages et sauvegarde">⚙︎</button>
   </div>
-  <input class="search" id="search" type="search" placeholder="Rechercher (texte, auteur, livre, tag…)">
-  <div class="modes" id="modes">
-    <button data-mode="author" class="on">Par auteur</button>
-    <button data-mode="book">Par livre</button>
-    <button data-mode="recent">Récents</button>
+  <div class="tabs" id="tabs">
+    <button data-tab="extraits" class="on">📖 Extraits</button>
+    <button data-tab="mots">🔤 Mots</button>
   </div>
+  <input class="search" id="search" type="search" placeholder="Rechercher (texte, auteur, livre, tag…)">
+  <div class="modes" id="modes"></div>
   <div class="tags" id="tagBar"></div>
   <div class="status" id="status"></div>
 </header>
@@ -230,6 +244,87 @@
   <div class="actions"><button class="danger" id="dDelete">Supprimer</button></div>
 </section>
 
+<!-- Formulaire d'un mot -->
+<section class="sheet" id="wordSheet">
+  <div class="bar">
+    <button id="wordCancel">Annuler</button>
+    <h2 id="wordFormTitle">Nouveau mot</h2>
+    <button class="primary" id="wordSave">Enregistrer</button>
+  </div>
+  <label for="wWord">Mot</label>
+  <input id="wWord" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="ex. thuriféraire">
+
+  <label for="wContext">Contexte (la phrase du livre)</label>
+  <textarea id="wContext" style="font-family:Georgia,serif" placeholder="La phrase où vous avez rencontré ce mot"></textarea>
+
+  <div class="label-row">
+    <label for="wDef">Définition</label>
+    <button class="small" id="btnDefine" type="button">✨ Définir</button>
+  </div>
+  <textarea id="wDef" placeholder="Écrite par l'IA d'après le mot et sa phrase — vous pouvez la corriger."></textarea>
+  <div class="hint" id="defStatus"></div>
+
+  <label for="wLang">Langue</label>
+  <input id="wLang" list="langList" autocomplete="off" placeholder="ex. français, latin, anglais">
+  <datalist id="langList"></datalist>
+
+  <label for="wAuthor">Auteur</label>
+  <input id="wAuthor" list="authorsList" autocomplete="off" placeholder="ex. Marguerite Yourcenar">
+
+  <label for="wTitle">Titre du livre</label>
+  <input id="wTitle" list="titlesList" autocomplete="off" placeholder="ex. Mémoires d'Hadrien">
+
+  <div class="two">
+    <div>
+      <label for="wPage">Page</label>
+      <input id="wPage" inputmode="numeric" placeholder="ex. 42">
+    </div>
+    <div>
+      <label for="wDate">Date de lecture</label>
+      <input id="wDate" type="date">
+    </div>
+  </div>
+
+  <label for="wTags">Thèmes / tags (séparés par des virgules)</label>
+  <input id="wTags" list="wordTagsList" autocomplete="off" placeholder="ex. vieilli, religion, marine">
+  <datalist id="wordTagsList"></datalist>
+
+  <label for="wNote">Note personnelle</label>
+  <textarea id="wNote" placeholder="Pourquoi ce mot m'a plu…"></textarea>
+</section>
+
+<!-- Détail d'un mot -->
+<section class="sheet" id="wordDetailSheet">
+  <div class="bar">
+    <button id="wordDetailClose">‹ Retour</button>
+    <h2></h2>
+    <span style="width:70px"></span>
+  </div>
+  <div class="word-title" id="wdWord"></div>
+  <div class="hint" id="wdLang" style="margin:-6px 0 10px"></div>
+  <div class="definition" id="wdDef"></div>
+  <div id="wdContextBlock">
+    <div class="section-title">Contexte</div>
+    <div class="quote" id="wdContext"></div>
+  </div>
+  <div class="meta">
+    <div class="t" id="wdTitle"></div>
+    <div class="a" id="wdAuthor"></div>
+    <div class="hint" id="wdInfo"></div>
+    <div class="tags" id="wdTags"></div>
+  </div>
+  <div id="wdNoteBlock">
+    <div class="section-title">Ma note</div>
+    <div class="note" id="wdNote"></div>
+  </div>
+  <div class="actions">
+    <button id="wdCopy">Copier</button>
+    <button id="wdShare">Partager</button>
+    <button id="wdEdit">Modifier</button>
+  </div>
+  <div class="actions"><button class="danger" id="wdDelete">Supprimer</button></div>
+</section>
+
 <!-- Réglages / sauvegarde -->
 <section class="sheet" id="settingsSheet">
   <div class="bar">
@@ -239,7 +334,7 @@
   </div>
   <p id="stats" class="hint"></p>
   <p id="account" class="hint"></p>
-  <p>Vos extraits sont enregistrés dans votre base <b>Supabase</b> : ils sont conservés même si vous changez de téléphone.</p>
+  <p>Vos extraits et vos mots sont enregistrés dans votre base <b>Supabase</b> : ils sont conservés même si vous changez de téléphone.</p>
   <p class="hint">Le forfait gratuit de Supabase ne fait pas de sauvegarde automatique : exportez de temps en temps une copie dans Fichiers / iCloud Drive.</p>
   <div class="actions"><button class="primary" id="btnExport">⬇︎ Préparer une sauvegarde</button></div>
   <div class="actions"><button id="btnImport">⬆︎ Importer une sauvegarde</button></div>
@@ -281,6 +376,7 @@
 
 const BUCKET = 'extraits';
 const TABLE = 'extraits';
+const WORDS = 'mots';
 
 /* ---------- Supabase ---------- */
 const CFG = window.APP_CONFIG || {};
@@ -534,17 +630,25 @@ function errMsg(e) { return (e && e.message) || 'erreur inconnue'; }
 
 /* ---------- État ---------- */
 let items = [];
-let mode = 'author';
+let words = [];         // mots de vocabulaire
+let wordsMissing = false; // table « mots » pas encore créée dans Supabase
+let tab = 'extraits';   // onglet affiché : 'extraits' ou 'mots'
+try { if (localStorage.getItem('tab') === 'mots') tab = 'mots'; } catch (e) { /* ignoré */ }
+const MODES = {
+  extraits: [['author', 'Par auteur'], ['book', 'Par livre'], ['recent', 'Récents']],
+  mots: [['alpha', 'A → Z'], ['book', 'Par livre'], ['lang', 'Par langue'], ['recent', 'Récents']],
+};
+const modes = { extraits: 'author', mots: 'alpha' };
 let activeTag = null;
 let editing = null;     // extrait en cours de modification
 let pendingPhotos = []; // photos choisies dans le formulaire : { image, thumb, aiPromise, text, page }
 let current = null;     // extrait affiché en détail
 
-async function fetchAll() {
+async function fetchAll(table = TABLE) {
   const out = [];
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await sb.from(TABLE).select('*').order('created_at', { ascending: false }).range(from, from + PAGE - 1);
+    const { data, error } = await sb.from(table).select('*').order('created_at', { ascending: false }).range(from, from + PAGE - 1);
     if (error) throw error;
     out.push(...data);
     if (data.length < PAGE) break;
@@ -559,6 +663,15 @@ async function refresh() {
     items = await fetchAll();
     await cachePut('kv', 'rows', items).catch(() => {});
     setStatus('');
+    try {
+      words = await fetchAll(WORDS);
+      wordsMissing = false;
+      await cachePut('kv', 'words', words).catch(() => {});
+    } catch (e) {
+      // Table absente (script SQL des mots pas encore exécuté) : les extraits restent utilisables
+      wordsMissing = e && (e.code === '42P01' || e.code === 'PGRST205' || /does not exist|could not find/i.test(e.message || ''));
+      if (!wordsMissing) throw e;
+    }
   } catch (e) {
     setStatus('Hors connexion : affichage des données enregistrées sur le téléphone.');
   }
@@ -568,7 +681,10 @@ async function refresh() {
 
 async function showCached() {
   const rows = await cacheGet('kv', 'rows').catch(() => null);
-  if (rows) { items = rows; render(); fillDatalists(); }
+  const w = await cacheGet('kv', 'words').catch(() => null);
+  if (w) words = w;
+  if (rows) items = rows;
+  if (rows || w) { render(); fillDatalists(); }
 }
 
 function setItem(row) {
@@ -604,9 +720,12 @@ const byPage = (a, b) => (parseInt(a.page, 10) || 1e9) - (parseInt(b.page, 10) |
 const pageLabel = (it) => (it.page ? 'p. ' + it.page : '');
 
 function render() {
-  const allTags = [...new Set(items.flatMap((i) => i.tags || []))].sort(collator.compare);
+  const src = tab === 'mots' ? words : items;
+  const allTags = [...new Set(src.flatMap((i) => i.tags || []))].sort(collator.compare);
   if (activeTag && !allTags.includes(activeTag)) activeTag = null;
   $('tagBar').innerHTML = allTags.map((t) => `<button class="chip ${t === activeTag ? 'on' : ''}" data-tag="${esc(t)}">#${esc(t)}</button>`).join('');
+  if (tab === 'mots') { renderWords(); return; }
+  const mode = modes.extraits;
 
   const q = norm($('search').value);
   const list = items.filter((it) => matches(it, q));
@@ -650,15 +769,38 @@ function fillDatalists() {
   $('authorsList').innerHTML = opts(uniq(items.map((i) => i.author)));
   $('titlesList').innerHTML = opts(uniq(items.map((i) => i.title)));
   $('tagsList').innerHTML = opts(uniq(items.flatMap((i) => i.tags || [])));
+  $('authorsList').innerHTML = opts(uniq([...items, ...words].map((i) => i.author)));
+  $('titlesList').innerHTML = opts(uniq([...items, ...words].map((i) => i.title)));
+  $('wordTagsList').innerHTML = opts(uniq(words.flatMap((i) => i.tags || [])));
+  $('langList').innerHTML = opts(uniq(['français', ...words.map((w) => w.language)]));
 }
 
 $('search').addEventListener('input', render);
+function renderModes() {
+  $('modes').innerHTML = MODES[tab].map(([m, label]) => `<button data-mode="${m}" class="${modes[tab] === m ? 'on' : ''}">${label}</button>`).join('');
+  document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x.dataset.tab === tab));
+  $('search').placeholder = tab === 'mots' ? 'Rechercher (mot, définition, livre…)' : 'Rechercher (texte, auteur, livre, tag…)';
+  $('btnAdd').setAttribute('aria-label', tab === 'mots' ? 'Ajouter un mot' : 'Ajouter un extrait');
+}
+renderModes();
+
 $('modes').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-mode]');
   if (!b) return;
-  mode = b.dataset.mode;
-  document.querySelectorAll('#modes button').forEach((x) => x.classList.toggle('on', x === b));
+  modes[tab] = b.dataset.mode;
+  renderModes();
   render();
+});
+$('tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-tab]');
+  if (!b || b.dataset.tab === tab) return;
+  tab = b.dataset.tab;
+  try { localStorage.setItem('tab', tab); } catch (err) { /* ignoré */ }
+  activeTag = null;
+  $('search').value = '';
+  renderModes();
+  render();
+  window.scrollTo(0, 0);
 });
 $('tagBar').addEventListener('click', (e) => {
   const b = e.target.closest('[data-tag]');
@@ -669,6 +811,8 @@ $('tagBar').addEventListener('click', (e) => {
 $('list').addEventListener('click', (e) => {
   const b = e.target.closest('.thumb');
   if (b) openDetail(b.dataset.id);
+  const w = e.target.closest('.word-row');
+  if (w) openWordDetail(w.dataset.id);
 });
 // Ouvrir un groupe charge ses miniatures
 $('list').addEventListener('toggle', loadThumbs, true);
@@ -733,7 +877,7 @@ function openForm(item) {
   openSheet('formSheet');
 }
 
-$('btnAdd').addEventListener('click', () => openForm(null));
+$('btnAdd').addEventListener('click', () => (tab === 'mots' ? openWordForm(null) : openForm(null)));
 $('btnPhoto').addEventListener('click', () => $('fileInput').click());
 $('fileInput').addEventListener('change', async (e) => {
   const files = [...e.target.files];
@@ -798,22 +942,28 @@ $('btnPaste').addEventListener('click', async () => {
 });
 
 /* ---------- Suggestion de thèmes / tags par l'IA ---------- */
-async function suggestTagsWithAI(texte) {
-  const { data, error } = await sb.functions.invoke('lire-texte', {
-    body: {
-      action: 'tags',
-      texte,
-      auteur: $('fAuthor').value.trim(),
-      livre: $('fTitle').value.trim(),
-      tags_existants: [...new Set(items.flatMap((i) => i.tags || []))],
-    },
-  });
+// Appelle la fonction Supabase « lire-texte » pour une demande texte (tags, définition)
+async function callAI(body) {
+  const { data, error } = await sb.functions.invoke('lire-texte', { body });
   if (error) {
     let msg = error.message;
     try { msg = (await error.context.json()).error || msg; } catch (e) { /* réponse non JSON */ }
     if (error.context && error.context.status === 404) msg = "Fonction « lire-texte » non installée dans Supabase (voir README)";
+    // Ancienne version de la fonction : elle ne connaît que la lecture de photo
+    if (/Image manquante/.test(msg)) msg = 'Redéployez la fonction « lire-texte » dans Supabase (voir README)';
     throw new Error(msg);
   }
+  return data || {};
+}
+
+async function suggestTagsWithAI(texte) {
+  const data = await callAI({
+    action: 'tags',
+    texte,
+    auteur: $('fAuthor').value.trim(),
+    livre: $('fTitle').value.trim(),
+    tags_existants: [...new Set(items.flatMap((i) => i.tags || []))],
+  });
   return Array.isArray(data.tags) ? data.tags : [];
 }
 
@@ -1016,6 +1166,256 @@ $('dShare').addEventListener('click', async () => {
 $('dImg').addEventListener('click', () => { if (detailUrl) { $('zoomImg').src = detailUrl; $('zoom').classList.add('open'); } });
 $('zoomClose').addEventListener('click', () => $('zoom').classList.remove('open'));
 
+/* ---------- Mots : liste ---------- */
+function matchesWord(w, q) {
+  if (activeTag && !(w.tags || []).includes(activeTag)) return false;
+  if (!q) return true;
+  return norm([w.word, w.definition, w.language, w.context, w.author, w.title, w.note, (w.tags || []).join(' ')].join(' ')).includes(q);
+}
+
+const byWord = (a, b) => collator.compare(a.word || '', b.word || '');
+
+const isFrench = (lang) => !lang || norm(lang) === 'francais';
+
+function wordRowHTML(w, showBook) {
+  return `<button class="word-row" data-id="${esc(w.id)}"><b>${esc(w.word)}</b>`
+    + (isFrench(w.language) ? '' : `<small>(${esc(w.language)})</small>`)
+    + (showBook && w.title ? `<small>${esc(w.title)}</small>` : '')
+    + `<span class="def">${esc(w.definition || w.context || '')}</span></button>`;
+}
+
+function renderWords() {
+  const main = $('list');
+  if (wordsMissing) {
+    main.innerHTML = `<div class="empty"><p style="font-size:40px;margin:0">🔤</p><p>La liste de mots n'est pas encore activée dans Supabase.</p><p>Exécutez le fichier <code>supabase-mots.sql</code> dans Supabase → SQL Editor (voir README), puis rouvrez l'app.</p></div>`;
+    return;
+  }
+  if (!words.length) {
+    main.innerHTML = `<div class="empty"><p style="font-size:40px;margin:0">🔤</p><p>Aucun mot pour l'instant.</p><p>Touchez <b>+</b> pour noter un mot découvert dans un livre, avec sa définition et la phrase où vous l'avez trouvé.</p></div>`;
+    return;
+  }
+  const q = norm($('search').value);
+  const list = words.filter((w) => matchesWord(w, q));
+  if (!list.length) { main.innerHTML = `<div class="empty">Aucun résultat.</div>`; return; }
+
+  const mode = modes.mots;
+  if (mode === 'recent') {
+    const sorted = [...list].sort((a, b) => time(b.created_at) - time(a.created_at));
+    main.innerHTML = `<div style="margin-top:6px">${sorted.map((w) => wordRowHTML(w, true)).join('')}</div>`;
+  } else if (mode === 'lang') {
+    const openAll = !!q || !!activeTag;
+    const lang = (w) => { const l = (w.language || '').trim(); return l ? l.charAt(0).toUpperCase() + l.slice(1) : 'Langue non indiquée'; };
+    main.innerHTML = groupBy(list, lang).map(([l, arr]) => `
+      <details class="group" ${openAll ? 'open' : ''}>
+        <summary><span>${esc(l)}</span><span class="count">${arr.length}</span></summary>
+        <div class="book">${arr.sort(byWord).map((w) => wordRowHTML(w, true).replace(/<small>\([^<]*\)<\/small>/, '')).join('')}</div>
+      </details>`).join('');
+  } else if (mode === 'book') {
+    const openAll = !!q || !!activeTag;
+    main.innerHTML = groupBy(list, (w) => w.title || 'Sans livre').map(([title, arr]) => `
+      <details class="group" ${openAll ? 'open' : ''}>
+        <summary><span><i>${esc(title)}</i><br><small style="font-weight:400;color:var(--muted)">${esc([...new Set(arr.map((i) => i.author).filter(Boolean))].join(', '))}</small></span><span class="count">${arr.length}</span></summary>
+        <div class="book">${arr.sort(byWord).map((w) => wordRowHTML(w, false)).join('')}</div>
+      </details>`).join('');
+  } else {
+    const letter = (w) => (norm(w.word).charAt(0) || '#').toUpperCase();
+    main.innerHTML = groupBy(list, letter).map(([l, arr]) => `
+      <div class="letter">${esc(/[A-Z]/.test(l) ? l : '#')}</div>
+      ${arr.sort(byWord).map((w) => wordRowHTML(w, true)).join('')}`).join('');
+  }
+}
+
+function setWord(row) {
+  const i = words.findIndex((x) => x.id === row.id);
+  if (i >= 0) words[i] = row; else words.unshift(row);
+  cachePut('kv', 'words', words).catch(() => {});
+  render();
+  fillDatalists();
+}
+
+/* ---------- Mots : formulaire ---------- */
+let editingWord = null;
+let currentWord = null;
+
+function openWordForm(w) {
+  if (!canWrite()) return;
+  if (wordsMissing) { toast('Exécutez d\'abord supabase-mots.sql dans Supabase (voir README).'); return; }
+  editingWord = w || null;
+  $('wordFormTitle').textContent = w ? 'Modifier le mot' : 'Nouveau mot';
+  // Pré-remplir avec le dernier livre saisi (extrait ou mot)
+  const last = w || [...items, ...words].sort((a, b) => time(b.created_at) - time(a.created_at))[0] || {};
+  $('wWord').value = w ? w.word || '' : '';
+  $('wDef').value = w ? w.definition || '' : '';
+  $('wLang').value = w ? w.language || '' : '';
+  $('defStatus').textContent = '';
+  defAuto = !w; // définition automatique pour un nouveau mot
+  $('wContext').value = w ? w.context || '' : '';
+  $('wAuthor').value = last.author || '';
+  $('wTitle').value = last.title || '';
+  $('wPage').value = w ? w.page || '' : '';
+  $('wDate').value = w ? w.read_date || '' : new Date().toISOString().slice(0, 10);
+  $('wTags').value = w ? (w.tags || []).join(', ') : '';
+  $('wNote').value = w ? w.note || '' : '';
+  openSheet('wordSheet');
+  if (!w) setTimeout(() => $('wWord').focus(), 50);
+}
+
+/* ---------- Mots : définition et langue par l'IA ---------- */
+let defBusy = false;
+let defAuto = false;
+
+async function defineWord(manual) {
+  const mot = $('wWord').value.trim();
+  if (!mot) { if (manual) { toast("Écrivez d'abord le mot."); $('wWord').focus(); } return; }
+  if (defBusy || !sb) return;
+  if (manual && $('wDef').value.trim() && !confirm('Remplacer la définition actuelle ?')) return;
+  defBusy = true;
+  defAuto = false;
+  $('btnDefine').disabled = true;
+  $('defStatus').textContent = '✨ Recherche de la définition…';
+  try {
+    const r = await callAI({
+      action: 'definition',
+      mot,
+      contexte: $('wContext').value.trim(),
+      auteur: $('wAuthor').value.trim(),
+      livre: $('wTitle').value.trim(),
+    });
+    // Ne pas écraser ce que la personne a tapé pendant la recherche (sauf demande explicite)
+    if (manual || !$('wDef').value.trim()) $('wDef').value = r.definition || '';
+    if (r.langue && (manual || !$('wLang').value.trim())) $('wLang').value = r.langue;
+    $('defStatus').textContent = r.definition ? '✓ Définition proposée par l\'IA — pensez à la relire.' : '';
+  } catch (e) {
+    $('defStatus').textContent = '⚠️ ' + e.message;
+  }
+  $('btnDefine').disabled = false;
+  defBusy = false;
+}
+
+$('btnDefine').addEventListener('click', () => { if (canWrite()) defineWord(true); });
+// Automatique : une fois le mot et sa phrase saisis (ou le mot seul si on passe directement à la suite)
+function autoDefine() {
+  if (!defAuto || !navigator.onLine || $('wDef').value.trim() || !$('wWord').value.trim()) return;
+  defineWord(false);
+}
+$('wContext').addEventListener('change', autoDefine);
+$('wContext').addEventListener('blur', autoDefine);
+$('wDef').addEventListener('focus', autoDefine);
+$('wWord').addEventListener('change', () => { if ($('wContext').value.trim()) autoDefine(); });
+
+$('wordCancel').addEventListener('click', () => closeSheet('wordSheet'));
+
+$('wordSave').addEventListener('click', async () => {
+  if (!canWrite()) return;
+  const data = {
+    word: $('wWord').value.trim(),
+    definition: $('wDef').value.trim(),
+    language: $('wLang').value.trim().toLowerCase(),
+    context: $('wContext').value.trim(),
+    author: $('wAuthor').value.trim(),
+    title: $('wTitle').value.trim(),
+    page: $('wPage').value.trim(),
+    read_date: $('wDate').value || null,
+    tags: parseTags($('wTags').value),
+    note: $('wNote').value.trim(),
+  };
+  if (!data.word) { toast('Écrivez le mot.'); $('wWord').focus(); return; }
+  const wasEditing = editingWord;
+  const twin = words.find((w) => w !== wasEditing && norm(w.word) === norm(data.word));
+  if (twin && !confirm(`« ${twin.word} » est déjà dans vos mots${twin.title ? ' (' + twin.title + ')' : ''}. L'ajouter quand même ?`)) return;
+
+  const btn = $('wordSave');
+  btn.disabled = true;
+  btn.textContent = '⏳';
+  try {
+    const query = wasEditing
+      ? sb.from(WORDS).update({ ...data, updated_at: new Date().toISOString() }).eq('id', wasEditing.id)
+      : sb.from(WORDS).insert(data);
+    const { data: row, error } = await query.select().single();
+    if (error) {
+      if (/language/.test(error.message || '')) throw new Error('colonne « langue » absente : exécutez à nouveau supabase-mots.sql (voir README)');
+      throw error;
+    }
+    setWord(row);
+    if (wasEditing) showWordDetail(row);
+  } catch (e) {
+    toast("Erreur d'enregistrement : " + errMsg(e));
+    btn.disabled = false; btn.textContent = 'Enregistrer';
+    return;
+  }
+  btn.disabled = false; btn.textContent = 'Enregistrer';
+  closeSheet('wordSheet');
+  toast(wasEditing ? 'Mot modifié' : 'Mot ajouté');
+});
+
+/* ---------- Mots : détail ---------- */
+// Met le mot en valeur dans sa phrase (sans tenir compte des majuscules)
+function highlight(text, word) {
+  const safe = esc(text);
+  const w = esc(word || '').trim();
+  if (!w) return safe;
+  const re = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'giu');
+  return safe.replace(re, (m) => `<mark>${m}</mark>`);
+}
+
+function openWordDetail(id) {
+  const w = words.find((x) => x.id === id);
+  if (!w) return;
+  showWordDetail(w);
+  openSheet('wordDetailSheet');
+}
+
+function showWordDetail(w) {
+  currentWord = w;
+  $('wdWord').textContent = w.word;
+  $('wdLang').textContent = w.language ? 'Langue : ' + w.language : '';
+  $('wdDef').textContent = w.definition || '';
+  $('wdDef').style.display = w.definition ? '' : 'none';
+  $('wdContext').innerHTML = highlight(w.context || '', w.word);
+  $('wdContextBlock').style.display = w.context ? '' : 'none';
+  $('wdTitle').textContent = w.title || '';
+  $('wdAuthor').textContent = w.author || '';
+  $('wdInfo').textContent = [w.page && 'Page ' + w.page, w.read_date && 'Lu le ' + formatDate(w.read_date)].filter(Boolean).join(' · ');
+  $('wdTags').innerHTML = (w.tags || []).map((t) => `<span class="chip">#${esc(t)}</span>`).join('');
+  $('wdNote').textContent = w.note || '';
+  $('wdNoteBlock').style.display = w.note ? '' : 'none';
+}
+
+function wordShareText(w) {
+  const ref = [w.author, w.title && '« ' + w.title + ' »', w.page && 'p. ' + w.page].filter(Boolean).join(', ');
+  return [
+    w.word + (isFrench(w.language) ? '' : ' (' + w.language + ')') + (w.definition ? ' : ' + w.definition : ''),
+    w.context && '« ' + w.context + ' »',
+    ref && '— ' + ref,
+  ].filter(Boolean).join('\n\n');
+}
+
+$('wordDetailClose').addEventListener('click', () => closeSheet('wordDetailSheet'));
+$('wdEdit').addEventListener('click', () => openWordForm(currentWord));
+$('wdCopy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(wordShareText(currentWord)); toast('Copié'); }
+  catch (e) { toast('Copie impossible'); }
+});
+$('wdShare').addEventListener('click', async () => {
+  if (!currentWord) return;
+  try {
+    if (navigator.share) await navigator.share({ text: wordShareText(currentWord) });
+    else toast('Partage non disponible');
+  } catch (e) { /* partage annulé */ }
+});
+$('wdDelete').addEventListener('click', async () => {
+  if (!currentWord || !canWrite() || !confirm(`Supprimer définitivement le mot « ${currentWord.word} » ?`)) return;
+  const w = currentWord;
+  const { error } = await sb.from(WORDS).delete().eq('id', w.id);
+  if (error) { toast('Suppression impossible : ' + errMsg(error)); return; }
+  words = words.filter((x) => x.id !== w.id);
+  cachePut('kv', 'words', words).catch(() => {});
+  render();
+  fillDatalists();
+  closeSheet('wordDetailSheet');
+  toast('Mot supprimé');
+});
+
 /* ---------- Réglages : sauvegarde / restauration ---------- */
 const blobToDataURL = (blob) => new Promise((resolve, reject) => {
   const r = new FileReader();
@@ -1029,7 +1429,8 @@ function updateStats() {
   const n = items.length;
   const authors = new Set(items.map((i) => i.author).filter(Boolean)).size;
   const books = new Set(items.map((i) => i.title).filter(Boolean)).size;
-  $('stats').textContent = `${n} extrait${n > 1 ? 's' : ''}, ${books} livre${books > 1 ? 's' : ''}, ${authors} auteur${authors > 1 ? 's' : ''}.`;
+  const nw = words.length;
+  $('stats').textContent = `${n} extrait${n > 1 ? 's' : ''}, ${nw} mot${nw > 1 ? 's' : ''}, ${books} livre${books > 1 ? 's' : ''}, ${authors} auteur${authors > 1 ? 's' : ''}.`;
   $('account').textContent = user ? 'Connecté : ' + user.email : '';
   let last = null;
   try { last = localStorage.getItem('lastBackup'); } catch (e) { /* ignoré */ }
@@ -1072,12 +1473,12 @@ function saveBackup(file) {
 
 $('btnExport').addEventListener('click', async () => {
   if (preparedBackup) { saveBackup(preparedBackup); return; }
-  if (!items.length) { toast('Rien à sauvegarder.'); return; }
+  if (!items.length && !words.length) { toast('Rien à sauvegarder.'); return; }
   const btn = $('btnExport');
   btn.disabled = true;
   try {
     // Fichier construit morceau par morceau pour limiter la mémoire utilisée
-    const parts = [JSON.stringify({ app: 'mes-extraits', version: 2, exportedAt: new Date().toISOString() }).slice(0, -1) + ',"items":['];
+    const parts = [JSON.stringify({ app: 'mes-extraits', version: 3, exportedAt: new Date().toISOString() }).slice(0, -1) + ',"items":['];
     for (let i = 0; i < items.length; i++) {
       btn.textContent = `⏳ Préparation ${i + 1}/${items.length}…`;
       const { image_path, thumb_path, user_id, ...rest } = items[i];
@@ -1085,7 +1486,8 @@ $('btnExport').addEventListener('click', async () => {
       const thumb = await blobToDataURL(await getBlob(thumb_path));
       parts.push((i ? ',' : '') + JSON.stringify({ ...rest, image, thumb }));
     }
-    parts.push(']}');
+    // Les mots (sans photo) sont ajoutés à la fin du fichier
+    parts.push('],"words":' + JSON.stringify(words.map(({ user_id, ...rest }) => rest)) + '}');
     const name = `extraits-${new Date().toISOString().slice(0, 10)}.json`;
     preparedBackup = new File(parts, name, { type: 'application/json' });
     btn.textContent = '💾 Enregistrer la sauvegarde';
@@ -1131,6 +1533,34 @@ async function uploadItems(list, onProgress) {
   return { added, skipped };
 }
 
+async function uploadWords(list) {
+  if (!list.length) return { added: 0, skipped: 0 };
+  if (wordsMissing) throw new Error('table « mots » absente : exécutez supabase-mots.sql (voir README)');
+  const ids = new Set(words.map((w) => w.id));
+  const times = new Set(words.map((w) => time(w.created_at)));
+  const rows = list
+    .filter((w) => w && w.word && !ids.has(w.id) && !times.has(time(w.created_at)))
+    .map((w) => ({
+      word: String(w.word),
+      definition: w.definition || '',
+      language: w.language || '',
+      context: w.context || '',
+      author: w.author || '',
+      title: w.title || '',
+      page: w.page || '',
+      read_date: w.read_date || null,
+      tags: Array.isArray(w.tags) ? w.tags : [],
+      note: w.note || '',
+      created_at: w.created_at || new Date().toISOString(),
+    }));
+  for (let i = 0; i < rows.length; i += 500) {
+    const { data, error } = await sb.from(WORDS).insert(rows.slice(i, i + 500)).select();
+    if (error) throw error;
+    data.forEach(setWord);
+  }
+  return { added: rows.length, skipped: list.length - rows.length };
+}
+
 $('btnImport').addEventListener('click', () => { if (canWrite()) $('importInput').click(); });
 $('importInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
@@ -1140,7 +1570,8 @@ $('importInput').addEventListener('change', async (e) => {
   try {
     const data = JSON.parse(await file.text());
     if (data.app !== 'mes-extraits' || !Array.isArray(data.items)) throw new Error('format');
-    if (!confirm(`Importer ${data.items.length} extrait(s) ? Les extraits déjà présents sont conservés.`)) return;
+    const importedWords = Array.isArray(data.words) ? data.words : [];
+    if (!confirm(`Importer ${data.items.length} extrait(s)` + (importedWords.length ? ` et ${importedWords.length} mot(s)` : '') + ' ? Les éléments déjà présents sont conservés.')) return;
     btn.disabled = true;
     const list = [];
     for (const it of data.items) {
@@ -1149,7 +1580,9 @@ $('importInput').addEventListener('change', async (e) => {
       list.push({ meta: normalizeImported(it), image, thumb });
     }
     const { added, skipped } = await uploadItems(list, (i, n) => { btn.textContent = `⏳ Envoi ${i}/${n}…`; });
-    toast(`${added} extrait(s) importé(s)` + (skipped ? `, ${skipped} déjà présent(s)` : ''));
+    const w = await uploadWords(importedWords);
+    toast(`${added} extrait(s) importé(s)` + (skipped ? `, ${skipped} déjà présent(s)` : '')
+      + (importedWords.length ? ` · ${w.added} mot(s) importé(s)` + (w.skipped ? `, ${w.skipped} déjà présent(s)` : '') : ''));
     updateStats();
   } catch (err) {
     toast(err.message === 'format' ? 'Fichier de sauvegarde invalide' : "Erreur d'import : " + errMsg(err));
@@ -1214,10 +1647,11 @@ $('loginForm').addEventListener('submit', async (e) => {
 });
 
 $('btnLogout').addEventListener('click', async () => {
-  if (!confirm('Se déconnecter ? Les copies locales seront effacées de ce téléphone (vos extraits restent dans Supabase).')) return;
+  if (!confirm('Se déconnecter ? Les copies locales seront effacées de ce téléphone (vos extraits et vos mots restent dans Supabase).')) return;
   if (sb) await sb.auth.signOut().catch(() => {});
   user = null;
   items = [];
+  words = [];
   await cacheClear('blobs').catch(() => {});
   await cacheClear('kv').catch(() => {});
   thumbUrls.forEach((u) => URL.revokeObjectURL(u));

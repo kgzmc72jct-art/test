@@ -6,7 +6,7 @@ Application web installable (PWA) : photographiez des passages de vos livres, le
 
 Depuis Windows, ouvrez l'Explorateur à l'adresse : `\\wsl.localhost\Debian\home\sdba\lecture`
 
-Fichiers : `index.html`, `config.js`, `manifest.webmanifest`, `sw.js`, `icon-180.png`, `icon-192.png`, `icon-512.png`, `supabase-setup.sql`, `supabase/functions/lire-texte/index.ts`, `README.md`.
+Fichiers : `index.html`, `config.js`, `manifest.webmanifest`, `sw.js`, `icon-180.png`, `icon-192.png`, `icon-512.png`, `supabase-setup.sql`, `supabase-mots.sql`, `supabase/functions/lire-texte/index.ts`, `README.md`.
 
 ---
 
@@ -76,6 +76,15 @@ Ouvrez http://localhost:8000 dans Edge ou Chrome sous Windows, connectez-vous et
 - **📋 Coller** : ajoute un texte copié ailleurs (par exemple avec « Texte en direct » de l'app Photos).
 - La recherche porte aussi sur le texte des extraits.
 
+### Mots de vocabulaire
+
+- En haut, choisissez l'onglet **🔤 Mots**, puis **+** : notez le mot et la phrase du livre où vous l'avez rencontré (le contexte). Auteur et livre sont pré-remplis avec votre dernière saisie.
+- **L'IA écrit la définition et indique la langue** du mot dès que vous quittez le champ de la phrase (définition du sens *dans cette phrase*). Relisez et corrigez si besoin. **✨ Définir** relance la recherche. Coût : bien moins d'un centime par mot.
+- Affichage **A → Z** (par lettre), **Par livre**, **Par langue** ou **Récents**. La recherche porte sur le mot, la définition, le contexte, le livre…
+- Dans la fiche d'un mot, il est mis en valeur dans sa phrase. **Copier** / **Partager** envoient le mot, sa définition, la phrase et la référence du livre.
+- Si le mot est déjà dans votre liste, l'app vous le signale avant de l'ajouter.
+- Les mots sont inclus dans la sauvegarde (⚙︎).
+
 ## Internet est-il nécessaire ?
 
 - **Ajouter, modifier, supprimer** un extrait : oui (l'enregistrement se fait dans Supabase).
@@ -83,6 +92,10 @@ Ouvrez http://localhost:8000 dans Edge ou Chrome sous Windows, connectez-vous et
 - **Lecture du texte par l'IA** : oui.
 
 ## Mettre à jour l'app
+
+> **Novembre 2026 — définition et langue par l'IA** : exécutez à nouveau `supabase-mots.sql` dans le SQL Editor (il ajoute la colonne « langue », sans rien effacer), redéployez la fonction `lire-texte` avec le nouveau `supabase/functions/lire-texte/index.ts`, puis renvoyez les fichiers sur GitHub.
+
+> **Novembre 2026 — liste de mots** : dans Supabase → **SQL Editor** → **New query**, collez tout le contenu de `supabase-mots.sql` → **Run** (une seule fois ; vos extraits ne sont pas touchés). Puis renvoyez `index.html`, `sw.js`, `README.md`, `supabase-setup.sql` et `supabase-mots.sql` sur GitHub.
 
 > **Novembre 2026 — suggestion de tags** : redéployez la fonction `lire-texte` (Supabase → Edge Functions → `lire-texte` → *Code* → collez le nouveau contenu de `supabase/functions/lire-texte/index.ts` → *Deploy*), puis renvoyez `index.html` et `sw.js` sur GitHub.
 
