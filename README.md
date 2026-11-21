@@ -72,6 +72,7 @@ Ouvrez http://localhost:8000 dans Edge ou Chrome sous Windows, connectez-vous et
 - Pour ne garder **qu'un passage** d'une page, soulignez-le ou encadrez-le au crayon avant la photo : seule cette partie sera transcrite.
 - Plusieurs photos d'un coup : chaque photo devient un extrait avec son propre texte.
 - **✨ Lire le texte** : relance la lecture (aussi pour les extraits déjà enregistrés, via « Modifier »).
+- **Thèmes suggérés** : dès que le texte d'une photo est lu, l'IA propose automatiquement 3 à 5 thèmes (bouton **✨ Suggérer** à côté des tags pour relancer, par ex. après un texte collé) d'après le texte de l'extrait, en réutilisant de préférence vos tags existants. Touchez une suggestion pour l'ajouter, ou « Tout ajouter ». Coût : bien moins d'un centime.
 - **📋 Coller** : ajoute un texte copié ailleurs (par exemple avec « Texte en direct » de l'app Photos).
 - La recherche porte aussi sur le texte des extraits.
 
@@ -82,5 +83,7 @@ Ouvrez http://localhost:8000 dans Edge ou Chrome sous Windows, connectez-vous et
 - **Lecture du texte par l'IA** : oui.
 
 ## Mettre à jour l'app
+
+> **Novembre 2026 — suggestion de tags** : redéployez la fonction `lire-texte` (Supabase → Edge Functions → `lire-texte` → *Code* → collez le nouveau contenu de `supabase/functions/lire-texte/index.ts` → *Deploy*), puis renvoyez `index.html` et `sw.js` sur GitHub.
 
 Après une modification, changez `VERSION` dans `sw.js` (ex. `extraits-v5`) et renvoyez les fichiers sur GitHub : Vercel republie automatiquement.

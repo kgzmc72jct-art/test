@@ -98,6 +98,9 @@
   .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
   .actions button { flex: 1; }
   .hint { font-size: 13px; color: var(--muted); }
+  .suggest { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  .suggest:empty { display: none; }
+  .suggest .chip { border: 1px dashed var(--accent); }
   .error { color: var(--danger); font-size: 14px; min-height: 1em; margin-top: 8px; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%);
@@ -187,9 +190,13 @@
     </div>
   </div>
 
-  <label for="fTags">Thèmes / tags (séparés par des virgules)</label>
+  <div class="label-row">
+    <label for="fTags">Thèmes / tags (séparés par des virgules)</label>
+    <button class="small" id="btnTags" type="button">✨ Suggérer</button>
+  </div>
   <input id="fTags" list="tagsList" autocomplete="off" placeholder="ex. amour, temps, citation">
   <datalist id="tagsList"></datalist>
+  <div class="suggest" id="tagSuggest"></div>
 
   <label for="fNote">Note personnelle</label>
   <textarea id="fNote" placeholder="Ce qui m'a marqué…"></textarea>
@@ -473,6 +480,11 @@ function startAI(photo) {
       const failed = pendingPhotos.filter((p) => p.aiError);
       if (done.length === pendingPhotos.length) {
         $('ocrStatus').textContent = failed.length ? '⚠️ ' + failed[0].aiError : '✓ Texte lu — pensez à le relire.';
+        // Suggestion automatique des thèmes (texte du formulaire, ou de la 1re photo lue si plusieurs)
+        const texte = $('textBlock').style.display === 'none'
+          ? (pendingPhotos.find((p) => p.text) || {}).text
+          : $('fText').value.trim();
+        runTagSuggest(texte);
       }
     });
 }
@@ -714,6 +726,8 @@ function openForm(item) {
   $('fText').value = item ? item.ocr_text || '' : '';
   $('liveHelp').open = !items.length;
   $('btnAi').style.display = sb ? '' : 'none';
+  $('btnTags').style.display = sb ? '' : 'none';
+  $('tagSuggest').innerHTML = '';
   showPreviews();
   updateTextBlock();
   openSheet('formSheet');
@@ -759,6 +773,7 @@ $('btnAi').addEventListener('click', async () => {
     $('fText').value = r.texte;
     if (!$('fPage').value.trim() && r.page) $('fPage').value = r.page;
     $('ocrStatus').textContent = r.texte ? '✓ Texte lu — pensez à le relire.' : 'Aucun texte trouvé sur la photo.';
+    runTagSuggest(r.texte);
   } catch (e) {
     $('ocrStatus').textContent = '⚠️ ' + e.message;
   }
@@ -780,6 +795,92 @@ $('btnPaste').addEventListener('click', async () => {
   // Plusieurs copies successives s'ajoutent les unes aux autres
   $('fText').value = existing ? existing + '\n\n' + text : text;
   toast('Texte collé — pensez à le relire');
+});
+
+/* ---------- Suggestion de thèmes / tags par l'IA ---------- */
+async function suggestTagsWithAI(texte) {
+  const { data, error } = await sb.functions.invoke('lire-texte', {
+    body: {
+      action: 'tags',
+      texte,
+      auteur: $('fAuthor').value.trim(),
+      livre: $('fTitle').value.trim(),
+      tags_existants: [...new Set(items.flatMap((i) => i.tags || []))],
+    },
+  });
+  if (error) {
+    let msg = error.message;
+    try { msg = (await error.context.json()).error || msg; } catch (e) { /* réponse non JSON */ }
+    if (error.context && error.context.status === 404) msg = "Fonction « lire-texte » non installée dans Supabase (voir README)";
+    throw new Error(msg);
+  }
+  return Array.isArray(data.tags) ? data.tags : [];
+}
+
+// Affiche les suggestions absentes du champ ; un toucher les ajoute
+function showTagSuggestions(tags) {
+  const have = new Set(parseTags($('fTags').value).map(norm));
+  const rest = tags.filter((t) => !have.has(norm(t)));
+  $('tagSuggest').innerHTML = rest.length
+    ? rest.map((t) => `<button type="button" class="chip" data-add="${esc(t)}">+ ${esc(t)}</button>`).join('')
+      + (rest.length > 1 ? '<button type="button" class="chip" data-add-all>Tout ajouter</button>' : '')
+    : '<span class="hint">Aucun nouveau thème à suggérer.</span>';
+}
+
+function addTags(list) {
+  const cur = parseTags($('fTags').value);
+  const seen = new Set(cur.map(norm));
+  list.forEach((t) => { if (!seen.has(norm(t))) { cur.push(t); seen.add(norm(t)); } });
+  $('fTags').value = cur.join(', ');
+}
+
+// Lance une suggestion (bouton ou automatiquement après la lecture du texte)
+let tagBusy = false;
+async function runTagSuggest(texte) {
+  if (tagBusy || !texte || !sb) return;
+  tagBusy = true;
+  const btn = $('btnTags');
+  btn.disabled = true;
+  $('tagSuggest').innerHTML = '<span class="hint">✨ Recherche de thèmes…</span>';
+  try {
+    const tags = await suggestTagsWithAI(texte);
+    if ($('formSheet').classList.contains('open')) showTagSuggestions(tags);
+  } catch (e) {
+    $('tagSuggest').innerHTML = `<span class="hint">⚠️ ${esc(e.message)}</span>`;
+  }
+  btn.disabled = false;
+  tagBusy = false;
+}
+
+$('btnTags').addEventListener('click', async () => {
+  if (!canWrite() || tagBusy) return;
+  let texte = $('fText').value.trim();
+  if (!texte && !editing && pendingPhotos.length > 1) {
+    await Promise.all(pendingPhotos.map((p) => p.aiPromise));
+    texte = pendingPhotos[0].text || '';
+  }
+  if (!texte && pendingPhotos[0] && pendingPhotos[0].aiPromise) {
+    $('tagSuggest').innerHTML = '<span class="hint">✨ Attente de la lecture du texte…</span>';
+    await pendingPhotos[0].aiPromise;
+    texte = $('fText').value.trim();
+  }
+  if (!texte) { $('tagSuggest').innerHTML = ''; toast("Il faut d'abord le texte de l'extrait."); return; }
+  runTagSuggest(texte);
+});
+
+$('tagSuggest').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.hasAttribute('data-add-all')) {
+    addTags([...$('tagSuggest').querySelectorAll('[data-add]')].map((x) => x.dataset.add));
+    $('tagSuggest').innerHTML = '';
+  } else {
+    addTags([b.dataset.add]);
+    b.remove();
+    const left = $('tagSuggest').querySelectorAll('[data-add]').length;
+    if (left < 2) { const all = $('tagSuggest').querySelector('[data-add-all]'); if (all) all.remove(); }
+    if (!left) $('tagSuggest').innerHTML = '';
+  }
 });
 
 $('formCancel').addEventListener('click', () => { clearPreviews(); pendingPhotos = []; closeSheet('formSheet'); });
