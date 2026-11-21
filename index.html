@@ -84,6 +84,7 @@
   .sheet { position: fixed; inset: 0; z-index: 10; background: var(--bg); overflow-y: auto;
     padding: calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 24px); display: none; }
   .sheet.open { display: block; }
+  #formSheet, #wordSheet { z-index: 12; } /* les formulaires passent devant les fiches détail (bouton Modifier) */
   .sheet.top { z-index: 15; }
   .sheet .bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
   .sheet .bar h2 { flex: 1; margin: 0; font-size: 18px; text-align: center; }
