@@ -111,6 +111,8 @@ Pour retirer le rôle : `delete from public.admins;` dans le SQL Editor.
 
 ## Mettre à jour l'app
 
+> **Novembre 2026 — nouveau look « Sombre & néon »** : renvoyez `index.html`, `sw.js`, `manifest.webmanifest` et les 3 icônes `icon-*.png` sur GitHub. Pour voir la nouvelle icône sur l'iPhone, supprimez l'app de l'écran d'accueil puis réinstallez-la (Safari → Partager → Sur l'écran d'accueil) : vos données ne sont pas touchées.
+
 > **Novembre 2026 — compte administrateur** : exécutez `supabase-admin.sql` (voir « Compte administrateur » ci-dessus), puis renvoyez `index.html`, `sw.js`, `README.md` et `supabase-admin.sql` sur GitHub.
 
 > **Novembre 2026 — définition et langue par l'IA** : exécutez à nouveau `supabase-mots.sql` dans le SQL Editor (il ajoute la colonne « langue », sans rien effacer), redéployez la fonction `lire-texte` avec le nouveau `supabase/functions/lire-texte/index.ts`, puis renvoyez les fichiers sur GitHub.
