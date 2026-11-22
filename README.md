@@ -85,6 +85,24 @@ Ouvrez http://localhost:8000 dans Edge ou Chrome sous Windows, connectez-vous et
 - Si le mot est déjà dans votre liste, l'app vous le signale avant de l'ajouter.
 - Les mots sont inclus dans la sauvegarde (⚙︎).
 
+## Plusieurs utilisateurs
+
+Chaque personne a sa propre base d'extraits et de mots : elle ne voit que ses données.
+
+**Créer un compte** : Supabase → **Authentication → Users → Add user → Create new user** → e-mail + mot de passe provisoire, cochez **Auto Confirm User**. Envoyez-lui l'adresse de l'app, son e-mail et son mot de passe. Elle installe l'app (Safari → Partager → Sur l'écran d'accueil) et se connecte.
+
+⚠️ La lecture des photos et les définitions par l'IA sont payées par **votre** crédit Anthropic, et tous les comptes partagent le 1 Go de photos gratuit de Supabase.
+
+### Compte administrateur (voir tous les comptes, en lecture seule)
+
+1. Ouvrez `supabase-admin.sql`, remplacez `votre-email@exemple.fr` (en bas du fichier) par l'e-mail de **votre** compte dans l'app.
+2. Supabase → **SQL Editor → New query** → collez tout le fichier → **Run**. La dernière ligne du résultat doit afficher votre e-mail.
+3. Dans l'app : **⚙︎** → rubrique **Administrateur** → touchez un compte pour voir ses extraits et ses mots. Un bandeau « 👁 Compte de … (lecture seule) » s'affiche ; **Mon compte** pour revenir.
+
+Vous pouvez consulter et faire une sauvegarde d'un autre compte, mais pas le modifier ni le supprimer. Prévenez vos utilisateurs que vous pouvez lire leurs extraits et leurs notes.
+
+Pour retirer le rôle : `delete from public.admins;` dans le SQL Editor.
+
 ## Internet est-il nécessaire ?
 
 - **Ajouter, modifier, supprimer** un extrait : oui (l'enregistrement se fait dans Supabase).
@@ -92,6 +110,8 @@ Ouvrez http://localhost:8000 dans Edge ou Chrome sous Windows, connectez-vous et
 - **Lecture du texte par l'IA** : oui.
 
 ## Mettre à jour l'app
+
+> **Novembre 2026 — compte administrateur** : exécutez `supabase-admin.sql` (voir « Compte administrateur » ci-dessus), puis renvoyez `index.html`, `sw.js`, `README.md` et `supabase-admin.sql` sur GitHub.
 
 > **Novembre 2026 — définition et langue par l'IA** : exécutez à nouveau `supabase-mots.sql` dans le SQL Editor (il ajoute la colonne « langue », sans rien effacer), redéployez la fonction `lire-texte` avec le nouveau `supabase/functions/lire-texte/index.ts`, puis renvoyez les fichiers sur GitHub.
 

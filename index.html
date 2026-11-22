@@ -128,6 +128,15 @@
   .zoom button { position: fixed; top: calc(env(safe-area-inset-top) + 10px); right: 12px; background: rgba(0,0,0,.6); color: #fff; }
   .login { max-width: 420px; margin: 40px auto 0; }
   .login h2 { font-family: Georgia, serif; text-align: center; font-size: 26px; }
+  /* Administrateur : consultation d'un autre compte, en lecture seule */
+  .viewing { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 10px; font-size: 14px;
+    background: var(--chip); border: 1px solid var(--accent); border-radius: 10px; }
+  .viewing span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .viewing[hidden] { display: none; }
+  .readonly #btnAdd, .readonly #dEdit, .readonly #dDelete, .readonly #wdEdit, .readonly #wdDelete, .readonly #btnImport { display: none; }
+  .account-row { display: block; width: 100%; text-align: left; margin-top: 6px; }
+  .account-row small { display: block; color: var(--muted); font-weight: 400; }
+  .account-row.on { border: 2px solid var(--accent); }
   code { background: var(--chip); padding: 1px 5px; border-radius: 4px; font-size: 14px; }
 </style>
 </head>
@@ -146,6 +155,10 @@
   <div class="modes" id="modes"></div>
   <div class="tags" id="tagBar"></div>
   <div class="status" id="status"></div>
+  <div class="viewing" id="viewBanner" hidden>
+    <span>👁 Compte de <b id="viewEmail"></b> (lecture seule)</span>
+    <button class="small" id="viewBack">Mon compte</button>
+  </div>
 </header>
 
 <main id="list"></main>
@@ -341,6 +354,10 @@
   <div class="actions"><button id="btnImport">⬆︎ Importer une sauvegarde</button></div>
   <input type="file" id="importInput" accept=".json,application/json" hidden>
   <p class="hint" id="lastBackup"></p>
+  <div id="adminBlock" style="display:none">
+    <div class="section-title">Administrateur : comptes des utilisateurs (lecture seule)</div>
+    <div id="accounts"></div>
+  </div>
   <div class="actions"><button class="danger" id="btnLogout">Se déconnecter</button></div>
 </section>
 
@@ -623,6 +640,7 @@ function formatDate(iso) {
 }
 
 function canWrite() {
+  if (viewing) { toast('Lecture seule : revenez à votre compte pour modifier.'); return false; }
   if (!sb || !user || !navigator.onLine) { toast('Connexion internet requise'); return false; }
   return true;
 }
@@ -644,12 +662,16 @@ let activeTag = null;
 let editing = null;     // extrait en cours de modification
 let pendingPhotos = []; // photos choisies dans le formulaire : { image, thumb, aiPromise, text, page }
 let current = null;     // extrait affiché en détail
+let isAdmin = false;    // compte administrateur (voir supabase-admin.sql)
+let viewing = null;     // { id, email } : compte d'un autre utilisateur consulté par l'administrateur
+const ownerId = () => (viewing ? viewing.id : user.id);
 
-async function fetchAll(table = TABLE) {
+// Toujours filtrer par propriétaire : l'administrateur a le droit de lire toutes les lignes
+async function fetchAll(table, uid) {
   const out = [];
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await sb.from(table).select('*').order('created_at', { ascending: false }).range(from, from + PAGE - 1);
+    const { data, error } = await sb.from(table).select('*').eq('user_id', uid).order('created_at', { ascending: false }).range(from, from + PAGE - 1);
     if (error) throw error;
     out.push(...data);
     if (data.length < PAGE) break;
@@ -660,21 +682,28 @@ async function fetchAll(table = TABLE) {
 async function refresh() {
   if (!sb || !user) return;
   setStatus('Synchronisation…');
+  const uid = ownerId();
+  const mine = !viewing; // la copie locale ne contient que VOS données
   try {
-    items = await fetchAll();
-    await cachePut('kv', 'rows', items).catch(() => {});
+    const rows = await fetchAll(TABLE, uid);
+    if (uid !== ownerId()) return; // compte changé pendant le chargement
+    items = rows;
+    if (mine) await cachePut('kv', 'rows', items).catch(() => {});
     setStatus('');
     try {
-      words = await fetchAll(WORDS);
+      const w = await fetchAll(WORDS, uid);
+      if (uid !== ownerId()) return;
+      words = w;
       wordsMissing = false;
-      await cachePut('kv', 'words', words).catch(() => {});
+      if (mine) await cachePut('kv', 'words', words).catch(() => {});
     } catch (e) {
       // Table absente (script SQL des mots pas encore exécuté) : les extraits restent utilisables
       wordsMissing = e && (e.code === '42P01' || e.code === 'PGRST205' || /does not exist|could not find/i.test(e.message || ''));
       if (!wordsMissing) throw e;
     }
   } catch (e) {
-    setStatus('Hors connexion : affichage des données enregistrées sur le téléphone.');
+    if (uid !== ownerId()) return;
+    setStatus(mine ? 'Hors connexion : affichage des données enregistrées sur le téléphone.' : 'Impossible de charger ce compte (connexion ?).');
   }
   render();
   fillDatalists();
@@ -733,7 +762,7 @@ function render() {
   const main = $('list');
 
   if (!items.length) {
-    main.innerHTML = `<div class="empty"><p style="font-size:40px;margin:0">📖</p><p>Aucun extrait pour l'instant.</p><p>Touchez <b>+</b> pour photographier votre premier passage.</p></div>`;
+    main.innerHTML = `<div class="empty"><p style="font-size:40px;margin:0">📖</p><p>Aucun extrait pour l'instant.</p>${viewing ? '' : '<p>Touchez <b>+</b> pour photographier votre premier passage.</p>'}</div>`;
     return;
   }
   if (!list.length) {
@@ -1431,8 +1460,9 @@ function updateStats() {
   const authors = new Set(items.map((i) => i.author).filter(Boolean)).size;
   const books = new Set(items.map((i) => i.title).filter(Boolean)).size;
   const nw = words.length;
-  $('stats').textContent = `${n} extrait${n > 1 ? 's' : ''}, ${nw} mot${nw > 1 ? 's' : ''}, ${books} livre${books > 1 ? 's' : ''}, ${authors} auteur${authors > 1 ? 's' : ''}.`;
-  $('account').textContent = user ? 'Connecté : ' + user.email : '';
+  $('stats').textContent = (viewing ? 'Compte de ' + viewing.email + ' : ' : '')
+    + `${n} extrait${n > 1 ? 's' : ''}, ${nw} mot${nw > 1 ? 's' : ''}, ${books} livre${books > 1 ? 's' : ''}, ${authors} auteur${authors > 1 ? 's' : ''}.`;
+  $('account').textContent = user ? 'Connecté : ' + user.email + (isAdmin ? ' (administrateur)' : '') : '';
   let last = null;
   try { last = localStorage.getItem('lastBackup'); } catch (e) { /* ignoré */ }
   $('lastBackup').textContent = last ? 'Dernière sauvegarde : ' + formatDate(last) : 'Aucune sauvegarde effectuée pour le moment.';
@@ -1445,14 +1475,73 @@ $('btnSettings').addEventListener('click', () => {
   preparedBackup = null;
   $('btnExport').textContent = EXPORT_LABEL;
   updateStats();
+  loadAccounts();
   openSheet('settingsSheet');
 });
 $('settingsClose').addEventListener('click', () => closeSheet('settingsSheet'));
 
+/* ---------- Administrateur : consulter les autres comptes (lecture seule) ---------- */
+async function checkAdmin() {
+  isAdmin = false;
+  if (sb && user) {
+    // Fonction absente (supabase-admin.sql non exécuté) ou compte ordinaire : pas d'accès
+    try {
+      const { data, error } = await sb.rpc('is_admin');
+      isAdmin = !error && data === true;
+    } catch (e) { isAdmin = false; }
+  }
+  $('adminBlock').style.display = isAdmin ? '' : 'none';
+}
+
+let accountsList = [];
+
+async function loadAccounts() {
+  if (!isAdmin) return;
+  const box = $('accounts');
+  box.innerHTML = '<p class="hint">Chargement des comptes…</p>';
+  let data, error;
+  try { ({ data, error } = await sb.rpc('admin_comptes')); } catch (e) { error = e; }
+  if (error) { box.innerHTML = `<p class="hint">Liste indisponible : ${esc(errMsg(error))}</p>`; return; }
+  accountsList = data || [];
+  const shownId = ownerId();
+  box.innerHTML = accountsList.map((a) => `
+    <button class="account-row ${a.id === shownId ? 'on' : ''}" data-account="${esc(a.id)}">
+      ${esc(a.email || a.id)}${a.id === user.id ? ' (vous)' : ''}
+      <small>${a.nb_extraits} extrait${a.nb_extraits > 1 ? 's' : ''}, ${a.nb_mots} mot${a.nb_mots > 1 ? 's' : ''}
+        · dernière connexion : ${a.last_sign_in_at ? esc(formatDate(a.last_sign_in_at)) : 'jamais'}</small>
+    </button>`).join('');
+}
+
+$('accounts').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-account]');
+  if (!b) return;
+  const acc = accountsList.find((a) => a.id === b.dataset.account);
+  if (acc) viewAccount(acc);
+});
+$('viewBack').addEventListener('click', () => viewAccount(null));
+
+async function viewAccount(acc) {
+  if (acc && acc.id === user.id) acc = null;
+  if (acc && !navigator.onLine) { toast('Connexion internet requise'); return; }
+  viewing = acc ? { id: acc.id, email: acc.email || acc.id } : null;
+  document.body.classList.toggle('readonly', !!viewing);
+  $('viewBanner').hidden = !viewing;
+  $('viewEmail').textContent = viewing ? viewing.email : '';
+  ['settingsSheet', 'detailSheet', 'wordDetailSheet', 'formSheet', 'wordSheet'].forEach(closeSheet);
+  items = [];
+  words = [];
+  activeTag = null;
+  $('search').value = '';
+  render();
+  window.scrollTo(0, 0);
+  if (!viewing) await showCached();
+  await refresh();
+}
+
 function saveBackup(file) {
   // Appelé directement depuis un toucher : iOS exige un geste récent pour le partage
   const markDone = () => {
-    try { localStorage.setItem('lastBackup', new Date().toISOString()); } catch (e) { /* ignoré */ }
+    if (!viewing) try { localStorage.setItem('lastBackup', new Date().toISOString()); } catch (e) { /* ignoré */ }
     preparedBackup = null;
     $('btnExport').textContent = EXPORT_LABEL;
     toast('Sauvegarde enregistrée');
@@ -1643,6 +1732,7 @@ $('loginForm').addEventListener('submit', async (e) => {
   user = data.user;
   $('lPassword').value = '';
   closeSheet('loginSheet');
+  await checkAdmin();
   await refresh();
   migrateOld();
 });
@@ -1651,6 +1741,11 @@ $('btnLogout').addEventListener('click', async () => {
   if (!confirm('Se déconnecter ? Les copies locales seront effacées de ce téléphone (vos extraits et vos mots restent dans Supabase).')) return;
   if (sb) await sb.auth.signOut().catch(() => {});
   user = null;
+  viewing = null;
+  isAdmin = false;
+  document.body.classList.remove('readonly');
+  $('viewBanner').hidden = true;
+  $('adminBlock').style.display = 'none';
   items = [];
   words = [];
   await cacheClear('blobs').catch(() => {});
@@ -1684,6 +1779,7 @@ async function start() {
   }
   user = data.session.user;
   await showCached();
+  await checkAdmin();
   await refresh();
   migrateOld();
 }
