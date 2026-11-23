@@ -7,18 +7,18 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Extraits">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#0b0e1a">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Mes Extraits</title>
 <style>
-  /* Thème « Noir & blanc » */
+  /* Thème « Sombre & néon » (toujours sombre) */
   :root {
     color-scheme: dark;
-    --bg: #000; --card: #111; --ink: #fff; --muted: #9a9a9a;
-    --accent: #fff; --accent2: #fff; --accent-ink: #000; --line: #2a2a2a; --chip: #1a1a1a; --danger: #ff5c7a;
-    --grad: linear-gradient(135deg, #fff 0%, #d0d0d0 100%);
-    --glow: 0 0 14px rgba(255,255,255,.18);
+    --bg: #0b0e1a; --card: #151a2e; --ink: #eef0ff; --muted: #8d93b8;
+    --accent: #5b8cff; --accent2: #b44dff; --accent-ink: #fff; --line: #252b48; --chip: #1d2340; --danger: #ff5c7a;
+    --grad: linear-gradient(135deg, #3d7bff 0%, #8a5bff 55%, #d24dff 100%);
+    --glow: 0 0 18px rgba(91,140,255,.45);
     --round: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -139,23 +139,23 @@
   code { background: var(--chip); padding: 1px 5px; border-radius: 4px; font-size: 14px; }
 
   /* ---------- Néon : touches dynamiques ---------- */
-  header { background: rgba(0,0,0,.82); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+  header { background: rgba(11,14,26,.82); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
   h1 { flex: 0 1 auto; margin-right: auto; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
   button { transition: transform .12s ease, box-shadow .2s ease, background .2s ease; }
   button:active:not(:disabled) { transform: scale(.95); }
   button.primary { background: var(--grad); box-shadow: var(--glow); border-radius: 14px; }
   button.danger { border-radius: 14px; }
   input, textarea, select { border-radius: 14px; transition: border-color .2s, box-shadow .2s; }
-  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,255,255,.15); }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(91,140,255,.25); }
   .search { border-radius: 999px; padding-left: 16px; }
   .tabs { border-radius: 16px; }
   .tabs button { border-radius: 12px; color: var(--muted); }
-  .tabs button.on { background: var(--grad); color: #000; box-shadow: var(--glow); }
+  .tabs button.on { background: var(--grad); color: #fff; box-shadow: var(--glow); }
   .modes button { border-radius: 999px; }
-  .modes button.on, .chip.on { background: var(--grad); color: #000; box-shadow: none; }
-  .chip { color: #ddd; border: 1px solid #3a3a3a; background: #111; }
+  .modes button.on, .chip.on { background: var(--grad); color: #fff; box-shadow: 0 0 12px rgba(180,77,255,.45); }
+  .chip { color: #b9c6ff; border: 1px solid rgba(91,140,255,.35); background: rgba(91,140,255,.08); }
   details.group, .word-row, .note, .help { border-radius: 18px; }
-  details.group[open] { border-color: #555; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+  details.group[open] { border-color: rgba(91,140,255,.45); box-shadow: 0 0 0 1px rgba(91,140,255,.15), 0 8px 24px rgba(0,0,0,.35); }
   details.group > summary .count { background: var(--chip); color: var(--accent); border-radius: 999px; padding: 0 9px; font-weight: 700; }
   .thumb { border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.4); transition: transform .15s; }
   .thumb:active { transform: scale(.96); }
@@ -163,15 +163,17 @@
   .letter { display: inline-block; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; font-size: 22px; }
   .word-title { display: inline-block; max-width: 100%; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .quote { border-left: 3px solid; border-image: var(--grad) 1; }
-  .quote mark { color: #fff; text-decoration: underline; }
-  .fab { background: var(--grad); color: #000; font-weight: 300;
-    box-shadow: 0 0 0 4px rgba(255,255,255,.12), 0 6px 18px rgba(0,0,0,.6); }
+  .quote mark { color: #d98bff; }
+  .fab { background: var(--grad); color: #fff; font-weight: 300;
+    box-shadow: 0 0 0 4px rgba(91,140,255,.18), 0 0 26px rgba(91,140,255,.65), 0 6px 18px rgba(0,0,0,.5);
+    animation: pulse 3s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 8px rgba(180,77,255,.12), 0 0 34px rgba(180,77,255,.7), 0 6px 18px rgba(0,0,0,.5); } }
   .sheet.open { animation: slideUp .28s cubic-bezier(.2,.8,.2,1); }
   @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
   .detail-img { border-radius: 16px; }
-  .viewing { border-color: #fff; background: rgba(255,255,255,.06); }
+  .viewing { border-color: var(--accent2); background: rgba(180,77,255,.1); }
   .account-row.on { border-color: var(--accent); box-shadow: var(--glow); }
-  .toast { background: var(--grad); color: #000; box-shadow: var(--glow); border-radius: 14px; }
+  .toast { background: var(--grad); color: #fff; box-shadow: var(--glow); border-radius: 14px; }
   @media (prefers-reduced-motion: reduce) { .fab, .sheet.open { animation: none; } button, .thumb { transition: none; } }
 </style>
 </head>
