@@ -119,6 +119,8 @@ Pour retirer le rôle : `delete from public.admins;` dans le SQL Editor.
 
 > **Novembre 2026 — liste de mots** : dans Supabase → **SQL Editor** → **New query**, collez tout le contenu de `supabase-mots.sql` → **Run** (une seule fois ; vos extraits ne sont pas touchés). Puis renvoyez `index.html`, `sw.js`, `README.md`, `supabase-setup.sql` et `supabase-mots.sql` sur GitHub.
 
+> **Novembre 2026 — validation des bios d'auteurs** : exécutez `supabase-bios.sql` dans le SQL Editor de Supabase (il crée la table « bios », sans rien effacer), puis renvoyez `index.html` et `sw.js` sur GitHub.
+
 > **Novembre 2026 — bio de l'auteur et noms en majuscules** : redéployez la fonction `lire-texte` (Supabase → Edge Functions → `lire-texte` → *Code* → collez le nouveau contenu de `supabase/functions/lire-texte/index.ts` → *Deploy*), puis renvoyez `index.html` et `sw.js` sur GitHub.
 
 > **Novembre 2026 — suggestion de tags** : redéployez la fonction `lire-texte` (Supabase → Edge Functions → `lire-texte` → *Code* → collez le nouveau contenu de `supabase/functions/lire-texte/index.ts` → *Deploy*), puis renvoyez `index.html` et `sw.js` sur GitHub.

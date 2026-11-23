@@ -110,6 +110,9 @@
     border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; margin: 14px 0; }
   .bio-btn { margin-top: 8px; }
   .bio { margin-top: 8px; font-size: 15px; line-height: 1.5; }
+  .bio-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .bio-actions[hidden] { display: none; }
+  .bio-ok { display: block; margin-top: 6px; font-size: 13px; color: var(--muted); }
   .section-title { font-size: 13px; color: var(--muted); margin-top: 16px; }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
   .actions button { flex: 1; }
@@ -283,6 +286,10 @@
     <div class="a" id="dAuthor"></div>
     <button class="small bio-btn" id="dBioBtn" type="button">👤 Bio de l'auteur</button>
     <div class="note bio" id="dBio" hidden></div>
+    <div class="bio-actions" id="dBioActions" hidden>
+      <button class="small primary" id="dBioOk" type="button">✅ Valider cette bio</button>
+      <button class="small" id="dBioRetry" type="button">🔄 Autre version</button>
+    </div>
     <div class="hint" id="dInfo"></div>
     <div class="tags" id="dTags"></div>
   </div>
@@ -367,6 +374,10 @@
     <div class="a" id="wdAuthor"></div>
     <button class="small bio-btn" id="wdBioBtn" type="button">👤 Bio de l'auteur</button>
     <div class="note bio" id="wdBio" hidden></div>
+    <div class="bio-actions" id="wdBioActions" hidden>
+      <button class="small primary" id="wdBioOk" type="button">✅ Valider cette bio</button>
+      <button class="small" id="wdBioRetry" type="button">🔄 Autre version</button>
+    </div>
     <div class="hint" id="wdInfo"></div>
     <div class="tags" id="wdTags" hidden></div>
   </div>
@@ -1054,9 +1065,16 @@ async function callAI(body) {
   return data || {};
 }
 
-/* ---------- Biographie de l'auteur (IA, gardée en mémoire sur l'appareil) ---------- */
-const bioCache = (() => { try { return JSON.parse(localStorage.getItem('bios') || '{}'); } catch (e) { return {}; } })();
+/* ---------- Biographie de l'auteur ----------
+   L'IA propose une bio ; une fois validée, elle est enregistrée dans Supabase (table « bios »)
+   et n'est plus jamais redemandée à l'IA. */
+const BIOS = 'bios';
+const bioKey = (author) => norm(upAuthor(author));   // « Victor Hugo » et « Hugo, Victor » = même auteur
+const bioValid = {};   // bios validées déjà lues : « compte|clé » → texte
+const bioDraft = {};   // propositions de l'IA pas encore validées (cette session seulement)
 const bioState = { d: null, wd: null };
+try { localStorage.removeItem('bios'); } catch (e) { /* ancien cache, plus utilisé */ }
+
 function resetBio(p, author) {
   bioState[p] = (author || '').trim();
   $(p + 'BioBtn').style.display = bioState[p] ? '' : 'none';
@@ -1064,40 +1082,98 @@ function resetBio(p, author) {
   $(p + 'BioBtn').textContent = "👤 Bio de l'auteur";
   $(p + 'Bio').hidden = true;
   $(p + 'Bio').textContent = '';
+  $(p + 'BioActions').hidden = true;
 }
+
+function displayBio(p, text, validated) {
+  const box = $(p + 'Bio');
+  box.textContent = text;
+  if (validated) box.insertAdjacentHTML('beforeend', '<span class="bio-ok">✓ Bio validée</span>');
+  box.hidden = false;
+  $(p + 'BioActions').hidden = validated || !!viewing;
+  $(p + 'BioBtn').textContent = '👤 Masquer la bio';
+}
+
+// Bio validée enregistrée dans Supabase (null si aucune)
+async function loadValidBio(key) {
+  const ck = ownerId() + '|' + key;
+  if (ck in bioValid) return bioValid[ck];
+  const { data, error } = await sb.from(BIOS).select('bio').eq('user_id', ownerId()).eq('author_key', key).maybeSingle();
+  if (error) return null; // table pas encore créée, hors connexion… : on passe par l'IA
+  bioValid[ck] = data ? data.bio : null;
+  return bioValid[ck];
+}
+
+async function askBio(p, author, key) {
+  const btn = $(p + 'BioBtn');
+  btn.disabled = true;
+  btn.textContent = '✨ Recherche…';
+  $(p + 'BioActions').hidden = true;
+  try {
+    const livres = [...new Set([...items, ...words].filter((x) => x.author && bioKey(x.author) === key).map((x) => x.title).filter(Boolean))];
+    const data = await callAI({ action: 'bio', auteur: author, livres });
+    const bio = (data.bio || '').trim();
+    if (!bio) throw new Error('Réponse vide');
+    bioDraft[key] = bio;
+  } catch (e) {
+    toast(e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = "👤 Bio de l'auteur";
+  return bioDraft[key] || null;
+}
+
 async function showBio(p) {
   const author = bioState[p];
   if (!author) return;
   if (!sb) { toast('Bio indisponible : application non connectée à Supabase'); return; }
-  const box = $(p + 'Bio'), btn = $(p + 'BioBtn');
-  if (!box.hidden) { box.hidden = true; btn.textContent = "👤 Bio de l'auteur"; return; }
-  const key = norm(author);
-  let bio = bioCache[key];
-  if (!bio) {
-    btn.disabled = true;
-    btn.textContent = '✨ Recherche…';
-    try {
-      const livres = [...new Set([...items, ...words].filter((x) => norm(x.author || '') === key).map((x) => x.title).filter(Boolean))];
-      const data = await callAI({ action: 'bio', auteur: author, livres });
-      bio = (data.bio || '').trim();
-      if (!bio) throw new Error('Réponse vide');
-      bioCache[key] = bio;
-      try { localStorage.setItem('bios', JSON.stringify(bioCache)); } catch (e) { /* ignoré */ }
-    } catch (e) {
-      toast(e.message);
-      btn.disabled = false;
-      btn.textContent = "👤 Bio de l'auteur";
-      return;
-    }
-    btn.disabled = false;
-    if (bioState[p] !== author) return; // fiche changée entre-temps
-  }
-  box.textContent = bio;
-  box.hidden = false;
-  btn.textContent = '👤 Masquer la bio';
+  if (!$(p + 'Bio').hidden) { resetBio(p, author); return; }   // 2e toucher : masquer
+  const key = bioKey(author);
+  const btn = $(p + 'BioBtn');
+  btn.disabled = true;
+  const valid = await loadValidBio(key);
+  btn.disabled = false;
+  if (bioState[p] !== author) return; // fiche changée entre-temps
+  if (valid) { displayBio(p, valid, true); return; }
+  const draft = bioDraft[key] || await askBio(p, author, key);
+  if (draft && bioState[p] === author) displayBio(p, draft, false);
 }
-$('dBioBtn').addEventListener('click', () => showBio('d'));
-$('wdBioBtn').addEventListener('click', () => showBio('wd'));
+
+async function validateBio(p) {
+  const author = bioState[p];
+  if (!author || !canWrite()) return;
+  const key = bioKey(author);
+  const bio = bioDraft[key];
+  if (!bio) return;
+  const ok = $(p + 'BioOk');
+  ok.disabled = true;
+  const { error } = await sb.from(BIOS).upsert({ user_id: user.id, author_key: key, author: upAuthor(author), bio, updated_at: new Date().toISOString() });
+  ok.disabled = false;
+  if (error) {
+    toast(/bios|relation|schema cache/i.test(error.message) ? 'Exécutez supabase-bios.sql dans Supabase (voir README)' : 'Enregistrement impossible : ' + errMsg(error));
+    return;
+  }
+  bioValid[user.id + '|' + key] = bio;
+  delete bioDraft[key];
+  displayBio(p, bio, true);
+  toast('Bio enregistrée');
+}
+
+async function retryBio(p) {
+  const author = bioState[p];
+  if (!author) return;
+  const key = bioKey(author);
+  delete bioDraft[key];
+  $(p + 'Bio').hidden = true;
+  const draft = await askBio(p, author, key);
+  if (draft && bioState[p] === author) displayBio(p, draft, false);
+}
+
+for (const p of ['d', 'wd']) {
+  $(p + 'BioBtn').addEventListener('click', () => showBio(p));
+  $(p + 'BioOk').addEventListener('click', () => validateBio(p));
+  $(p + 'BioRetry').addEventListener('click', () => retryBio(p));
+}
 
 async function suggestTagsWithAI(texte) {
   const data = await callAI({
