@@ -108,6 +108,8 @@
     border-radius: 10px; padding: 12px; margin: 10px 0; }
   .quote { white-space: pre-wrap; font-family: Georgia, serif; font-size: 17px; line-height: 1.5;
     border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; margin: 14px 0; }
+  .bio-btn { margin-top: 8px; }
+  .bio { margin-top: 8px; font-size: 15px; line-height: 1.5; }
   .section-title { font-size: 13px; color: var(--muted); margin-top: 16px; }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
   .actions button { flex: 1; }
@@ -279,6 +281,8 @@
   <div class="meta">
     <div class="t" id="dTitle"></div>
     <div class="a" id="dAuthor"></div>
+    <button class="small bio-btn" id="dBioBtn" type="button">👤 Bio de l'auteur</button>
+    <div class="note bio" id="dBio" hidden></div>
     <div class="hint" id="dInfo"></div>
     <div class="tags" id="dTags"></div>
   </div>
@@ -361,6 +365,8 @@
   <div class="meta">
     <div class="t" id="wdTitle"></div>
     <div class="a" id="wdAuthor"></div>
+    <button class="small bio-btn" id="wdBioBtn" type="button">👤 Bio de l'auteur</button>
+    <div class="note bio" id="wdBio" hidden></div>
     <div class="hint" id="wdInfo"></div>
     <div class="tags" id="wdTags" hidden></div>
   </div>
@@ -769,6 +775,9 @@ function matches(it, q) {
   return norm([it.author, it.title, it.ocr_text, it.note, it.page, (it.tags || []).join(' ')].join(' ')).includes(q);
 }
 
+// Le nom de l'auteur est toujours affiché en majuscules
+const upAuthor = (a) => (a || '').trim().toLocaleUpperCase('fr-FR');
+
 function thumbHTML(it, label) {
   return `<button class="thumb" data-id="${esc(it.id)}"><img data-path="${esc(it.thumb_path)}" alt="">${label ? `<span>${esc(label)}</span>` : ''}</button>`;
 }
@@ -810,15 +819,15 @@ function render() {
   const openAll = !!q || !!activeTag;
   if (mode === 'recent') {
     const sorted = [...list].sort((a, b) => time(b.created_at) - time(a.created_at));
-    main.innerHTML = `<div class="grid" style="margin-top:10px">${sorted.map((it) => thumbHTML(it, it.title || it.author)).join('')}</div>`;
+    main.innerHTML = `<div class="grid" style="margin-top:10px">${sorted.map((it) => thumbHTML(it, it.title || upAuthor(it.author))).join('')}</div>`;
   } else if (mode === 'book') {
     main.innerHTML = groupBy(list, (it) => it.title || 'Sans titre').map(([title, arr]) => `
       <details class="group" ${openAll ? 'open' : ''}>
-        <summary><span><i>${esc(title)}</i><br><small style="font-weight:400;color:var(--muted)">${esc([...new Set(arr.map((i) => i.author).filter(Boolean))].join(', '))}</small></span><span class="count">${arr.length}</span></summary>
+        <summary><span><i>${esc(title)}</i><br><small style="font-weight:400;color:var(--muted)">${esc([...new Set(arr.map((i) => upAuthor(i.author)).filter(Boolean))].join(', '))}</small></span><span class="count">${arr.length}</span></summary>
         <div class="book"><div class="grid">${arr.sort(byPage).map((it) => thumbHTML(it, pageLabel(it))).join('')}</div></div>
       </details>`).join('');
   } else {
-    main.innerHTML = groupBy(list, (it) => it.author || 'Auteur inconnu').map(([author, arr]) => `
+    main.innerHTML = groupBy(list, (it) => upAuthor(it.author) || 'AUTEUR INCONNU').map(([author, arr]) => `
       <details class="group" ${openAll ? 'open' : ''}>
         <summary><span>${esc(author)}</span><span class="count">${arr.length}</span></summary>
         ${groupBy(arr, (it) => it.title || 'Sans titre').map(([title, books]) => `
@@ -1023,6 +1032,50 @@ async function callAI(body) {
   return data || {};
 }
 
+/* ---------- Biographie de l'auteur (IA, gardée en mémoire sur l'appareil) ---------- */
+const bioCache = (() => { try { return JSON.parse(localStorage.getItem('bios') || '{}'); } catch (e) { return {}; } })();
+const bioState = { d: null, wd: null };
+function resetBio(p, author) {
+  bioState[p] = (author || '').trim();
+  $(p + 'BioBtn').style.display = bioState[p] && sb ? '' : 'none';
+  $(p + 'BioBtn').disabled = false;
+  $(p + 'BioBtn').textContent = "👤 Bio de l'auteur";
+  $(p + 'Bio').hidden = true;
+  $(p + 'Bio').textContent = '';
+}
+async function showBio(p) {
+  const author = bioState[p];
+  if (!author) return;
+  const box = $(p + 'Bio'), btn = $(p + 'BioBtn');
+  if (!box.hidden) { box.hidden = true; btn.textContent = "👤 Bio de l'auteur"; return; }
+  const key = norm(author);
+  let bio = bioCache[key];
+  if (!bio) {
+    btn.disabled = true;
+    btn.textContent = '✨ Recherche…';
+    try {
+      const livres = [...new Set([...items, ...words].filter((x) => norm(x.author || '') === key).map((x) => x.title).filter(Boolean))];
+      const data = await callAI({ action: 'bio', auteur: author, livres });
+      bio = (data.bio || '').trim();
+      if (!bio) throw new Error('Réponse vide');
+      bioCache[key] = bio;
+      try { localStorage.setItem('bios', JSON.stringify(bioCache)); } catch (e) { /* ignoré */ }
+    } catch (e) {
+      toast(e.message);
+      btn.disabled = false;
+      btn.textContent = "👤 Bio de l'auteur";
+      return;
+    }
+    btn.disabled = false;
+    if (bioState[p] !== author) return; // fiche changée entre-temps
+  }
+  box.textContent = bio;
+  box.hidden = false;
+  btn.textContent = '👤 Masquer la bio';
+}
+$('dBioBtn').addEventListener('click', () => showBio('d'));
+$('wdBioBtn').addEventListener('click', () => showBio('wd'));
+
 async function suggestTagsWithAI(texte) {
   const data = await callAI({
     action: 'tags',
@@ -1184,7 +1237,8 @@ function showDetail(it) {
     $('dImg').src = detailUrl;
   }).catch(() => toast('Photo indisponible hors connexion'));
   $('dTitle').textContent = it.title || 'Sans titre';
-  $('dAuthor').textContent = it.author || 'Auteur inconnu';
+  $('dAuthor').textContent = upAuthor(it.author) || 'AUTEUR INCONNU';
+  resetBio('d', it.author);
   $('dInfo').textContent = [it.page && 'Page ' + it.page, it.read_date && 'Lu le ' + formatDate(it.read_date)].filter(Boolean).join(' · ');
   $('dTags').innerHTML = (it.tags || []).map((t) => `<span class="chip">#${esc(t)}</span>`).join('');
   $('dText').textContent = it.ocr_text || '';
@@ -1195,7 +1249,7 @@ function showDetail(it) {
 }
 
 function shareText(it) {
-  const ref = [it.author, it.title && '« ' + it.title + ' »', it.page && 'p. ' + it.page].filter(Boolean).join(', ');
+  const ref = [upAuthor(it.author), it.title && '« ' + it.title + ' »', it.page && 'p. ' + it.page].filter(Boolean).join(', ');
   return [it.ocr_text, ref && '— ' + ref].filter(Boolean).join('\n\n');
 }
 
@@ -1281,7 +1335,7 @@ function renderWords() {
     const openAll = !!q || !!activeTag;
     main.innerHTML = groupBy(list, (w) => w.title || 'Sans livre').map(([title, arr]) => `
       <details class="group" ${openAll ? 'open' : ''}>
-        <summary><span><i>${esc(title)}</i><br><small style="font-weight:400;color:var(--muted)">${esc([...new Set(arr.map((i) => i.author).filter(Boolean))].join(', '))}</small></span><span class="count">${arr.length}</span></summary>
+        <summary><span><i>${esc(title)}</i><br><small style="font-weight:400;color:var(--muted)">${esc([...new Set(arr.map((i) => upAuthor(i.author)).filter(Boolean))].join(', '))}</small></span><span class="count">${arr.length}</span></summary>
         <div class="book">${arr.sort(byWord).map((w) => wordRowHTML(w, false)).join('')}</div>
       </details>`).join('');
   } else {
@@ -1441,7 +1495,8 @@ function showWordDetail(w) {
   $('wdContext').innerHTML = highlight(w.context || '', w.word);
   $('wdContextBlock').style.display = w.context ? '' : 'none';
   $('wdTitle').textContent = w.title || '';
-  $('wdAuthor').textContent = w.author || '';
+  $('wdAuthor').textContent = upAuthor(w.author);
+  resetBio('wd', w.author);
   $('wdInfo').textContent = [w.page && 'Page ' + w.page, w.read_date && 'Lu le ' + formatDate(w.read_date)].filter(Boolean).join(' · ');
   $('wdTags').innerHTML = (w.tags || []).map((t) => `<span class="chip">#${esc(t)}</span>`).join('');
   $('wdNote').textContent = w.note || '';
@@ -1449,7 +1504,7 @@ function showWordDetail(w) {
 }
 
 function wordShareText(w) {
-  const ref = [w.author, w.title && '« ' + w.title + ' »', w.page && 'p. ' + w.page].filter(Boolean).join(', ');
+  const ref = [upAuthor(w.author), w.title && '« ' + w.title + ' »', w.page && 'p. ' + w.page].filter(Boolean).join(', ');
   return [
     w.word + (isFrench(w.language) ? '' : ' (' + w.language + ')') + (w.definition ? ' : ' + w.definition : ''),
     w.context && '« ' + w.context + ' »',
