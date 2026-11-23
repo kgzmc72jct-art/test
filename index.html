@@ -112,6 +112,7 @@
   .bio { margin-top: 8px; font-size: 15px; line-height: 1.5; }
   .bio-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
   .bio-actions[hidden] { display: none; }
+  .bio-edit { width: 100%; margin-top: 8px; font-size: 15px; line-height: 1.5; }
   .bio-ok { display: block; margin-top: 6px; font-size: 13px; color: var(--muted); }
   .section-title { font-size: 13px; color: var(--muted); margin-top: 16px; }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
@@ -288,7 +289,15 @@
     <div class="note bio" id="dBio" hidden></div>
     <div class="bio-actions" id="dBioActions" hidden>
       <button class="small primary" id="dBioOk" type="button">✅ Valider cette bio</button>
+      <button class="small" id="dBioEditBtn" type="button">✏️ Modifier</button>
       <button class="small" id="dBioRetry" type="button">🔄 Autre version</button>
+    </div>
+    <div id="dBioEditor" hidden>
+      <textarea class="bio-edit" id="dBioText" rows="10"></textarea>
+      <div class="bio-actions">
+        <button class="small primary" id="dBioSave" type="button">💾 Enregistrer</button>
+        <button class="small" id="dBioCancel" type="button">Annuler</button>
+      </div>
     </div>
     <div class="hint" id="dInfo"></div>
     <div class="tags" id="dTags"></div>
@@ -376,7 +385,15 @@
     <div class="note bio" id="wdBio" hidden></div>
     <div class="bio-actions" id="wdBioActions" hidden>
       <button class="small primary" id="wdBioOk" type="button">✅ Valider cette bio</button>
+      <button class="small" id="wdBioEditBtn" type="button">✏️ Modifier</button>
       <button class="small" id="wdBioRetry" type="button">🔄 Autre version</button>
+    </div>
+    <div id="wdBioEditor" hidden>
+      <textarea class="bio-edit" id="wdBioText" rows="10"></textarea>
+      <div class="bio-actions">
+        <button class="small primary" id="wdBioSave" type="button">💾 Enregistrer</button>
+        <button class="small" id="wdBioCancel" type="button">Annuler</button>
+      </div>
     </div>
     <div class="hint" id="wdInfo"></div>
     <div class="tags" id="wdTags" hidden></div>
@@ -1083,6 +1100,7 @@ function resetBio(p, author) {
   $(p + 'Bio').hidden = true;
   $(p + 'Bio').textContent = '';
   $(p + 'BioActions').hidden = true;
+  $(p + 'BioEditor').hidden = true;
 }
 
 function displayBio(p, text, validated) {
@@ -1090,9 +1108,17 @@ function displayBio(p, text, validated) {
   box.textContent = text;
   if (validated) box.insertAdjacentHTML('beforeend', '<span class="bio-ok">✓ Bio validée</span>');
   box.hidden = false;
-  $(p + 'BioActions').hidden = validated || !!viewing;
+  $(p + 'BioEditor').hidden = true;
+  // Bio validée : on peut encore la corriger ou la redemander ; proposition de l'IA : valider, corriger ou autre version
+  $(p + 'BioOk').style.display = validated ? 'none' : '';
+  $(p + 'BioRetry').textContent = validated ? "🔄 Redemander à l'IA" : '🔄 Autre version';
+  $(p + 'BioActions').hidden = !!viewing;
   $(p + 'BioBtn').textContent = '👤 Masquer la bio';
 }
+const currentBio = (p) => {
+  const key = bioKey(bioState[p]);
+  return bioDraft[key] || bioValid[ownerId() + '|' + key] || '';
+};
 
 // Bio validée enregistrée dans Supabase (null si aucune)
 async function loadValidBio(key) {
@@ -1139,13 +1165,13 @@ async function showBio(p) {
   if (draft && bioState[p] === author) displayBio(p, draft, false);
 }
 
-async function validateBio(p) {
+async function validateBio(p, text) {
   const author = bioState[p];
   if (!author || !canWrite()) return;
   const key = bioKey(author);
-  const bio = bioDraft[key];
+  const bio = (text ?? bioDraft[key] ?? '').trim();
   if (!bio) return;
-  const ok = $(p + 'BioOk');
+  const ok = text != null ? $(p + 'BioSave') : $(p + 'BioOk');
   ok.disabled = true;
   const { error } = await sb.from(BIOS).upsert({ user_id: user.id, author_key: key, author: upAuthor(author), bio, updated_at: new Date().toISOString() });
   ok.disabled = false;
@@ -1173,6 +1199,20 @@ for (const p of ['d', 'wd']) {
   $(p + 'BioBtn').addEventListener('click', () => showBio(p));
   $(p + 'BioOk').addEventListener('click', () => validateBio(p));
   $(p + 'BioRetry').addEventListener('click', () => retryBio(p));
+  $(p + 'BioEditBtn').addEventListener('click', () => {
+    if (!canWrite()) return;
+    $(p + 'BioText').value = currentBio(p);
+    $(p + 'Bio').hidden = true;
+    $(p + 'BioActions').hidden = true;
+    $(p + 'BioEditor').hidden = false;
+    $(p + 'BioText').focus();
+  });
+  $(p + 'BioSave').addEventListener('click', () => validateBio(p, $(p + 'BioText').value));
+  $(p + 'BioCancel').addEventListener('click', () => {
+    $(p + 'BioEditor').hidden = true;
+    $(p + 'Bio').hidden = false;
+    $(p + 'BioActions').hidden = !!viewing;
+  });
 }
 
 async function suggestTagsWithAI(texte) {
