@@ -662,6 +662,7 @@ function cleanText(text) {
 const $ = (id) => document.getElementById(id);
 const norm = (s) => (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const esc = (s) => (s || '').toString().replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const capTag = (t) => t ? t.charAt(0).toLocaleUpperCase('fr-FR') + t.slice(1) : t;
 const parseTags = (s) => [...new Set((s || '').split(',').map((t) => t.trim()).filter(Boolean))];
 const collator = new Intl.Collator('fr', { sensitivity: 'base' });
 const time = (iso) => new Date(iso).getTime() || 0;
@@ -775,8 +776,29 @@ function matches(it, q) {
   return norm([it.author, it.title, it.ocr_text, it.note, it.page, (it.tags || []).join(' ')].join(' ')).includes(q);
 }
 
-// Le nom de l'auteur est toujours affiché en majuscules
-const upAuthor = (a) => (a || '').trim().toLocaleUpperCase('fr-FR');
+// Le nom de l'auteur est toujours affiché « NOM Prénom » : nom de famille en majuscules, prénom avec une majuscule
+// (« victor hugo » → « HUGO Victor », « Jean de La Fontaine » → « LA FONTAINE Jean de »).
+// Avec une virgule, l'ordre tapé est gardé : « García Márquez, Gabriel » → « GARCÍA MÁRQUEZ Gabriel ».
+const UP = (x) => x.toLocaleUpperCase('fr-FR');
+// Majuscule en début de mot et après un trait d'union (« jean-paul » → « Jean-Paul ») ; « de », « d' » restent en minuscules
+const capPrenom = (x) => x.split(' ').map((m) => /^(de|d'|d’)$/i.test(m) ? m.toLowerCase()
+  : m.toLocaleLowerCase('fr-FR').replace(/(^|[-'’])(\p{L})/gu, (_, sep, c) => sep + UP(c))).join(' ');
+function upAuthor(a) {
+  a = (a || '').trim().replace(/\s+/g, ' ');
+  if (!a) return '';
+  if (a.includes(',')) {
+    const [nom, ...rest] = a.split(',');
+    return [UP(nom.trim()), capPrenom(rest.join(',').trim())].filter(Boolean).join(' ');
+  }
+  const w = a.split(' ');
+  if (w.length < 2) return UP(a);
+  let i = w.length - 1; // début du nom de famille
+  while (i > 1 && /^(la|le|les|du|des|van|von|der|den|di|da|del|della|dos|das|ten|ter)$/i.test(w[i - 1])) i--;
+  const prenom = w.slice(0, i);
+  const de = [];
+  while (prenom.length > 1 && /^(de|d'|d’)$/i.test(prenom[prenom.length - 1])) de.unshift(prenom.pop());
+  return [UP(w.slice(i).join(' ')), capPrenom([...prenom, ...de].join(' '))].join(' ');
+}
 
 function thumbHTML(it, label) {
   return `<button class="thumb" data-id="${esc(it.id)}"><img data-path="${esc(it.thumb_path)}" alt="">${label ? `<span>${esc(label)}</span>` : ''}</button>`;
@@ -799,7 +821,7 @@ function render() {
   const src = tab === 'mots' ? words : items;
   const allTags = tab === 'mots' ? [] : [...new Set(src.flatMap((i) => i.tags || []))].sort(collator.compare);
   if (activeTag && !allTags.includes(activeTag)) activeTag = null;
-  $('tagBar').innerHTML = allTags.map((t) => `<button class="chip ${t === activeTag ? 'on' : ''}" data-tag="${esc(t)}">#${esc(t)}</button>`).join('');
+  $('tagBar').innerHTML = allTags.map((t) => `<button class="chip ${t === activeTag ? 'on' : ''}" data-tag="${esc(t)}">#${esc(capTag(t))}</button>`).join('');
   if (tab === 'mots') { renderWords(); return; }
   const mode = modes.extraits;
 
@@ -1037,7 +1059,7 @@ const bioCache = (() => { try { return JSON.parse(localStorage.getItem('bios') |
 const bioState = { d: null, wd: null };
 function resetBio(p, author) {
   bioState[p] = (author || '').trim();
-  $(p + 'BioBtn').style.display = bioState[p] && sb ? '' : 'none';
+  $(p + 'BioBtn').style.display = bioState[p] ? '' : 'none';
   $(p + 'BioBtn').disabled = false;
   $(p + 'BioBtn').textContent = "👤 Bio de l'auteur";
   $(p + 'Bio').hidden = true;
@@ -1046,6 +1068,7 @@ function resetBio(p, author) {
 async function showBio(p) {
   const author = bioState[p];
   if (!author) return;
+  if (!sb) { toast('Bio indisponible : application non connectée à Supabase'); return; }
   const box = $(p + 'Bio'), btn = $(p + 'BioBtn');
   if (!box.hidden) { box.hidden = true; btn.textContent = "👤 Bio de l'auteur"; return; }
   const key = norm(author);
@@ -1092,7 +1115,7 @@ function showTagSuggestions(tags) {
   const have = new Set(parseTags($('fTags').value).map(norm));
   const rest = tags.filter((t) => !have.has(norm(t)));
   $('tagSuggest').innerHTML = rest.length
-    ? rest.map((t) => `<button type="button" class="chip" data-add="${esc(t)}">+ ${esc(t)}</button>`).join('')
+    ? rest.map((t) => `<button type="button" class="chip" data-add="${esc(t)}">+ ${esc(capTag(t))}</button>`).join('')
       + (rest.length > 1 ? '<button type="button" class="chip" data-add-all>Tout ajouter</button>' : '')
     : '<span class="hint">Aucun nouveau thème à suggérer.</span>';
 }
@@ -1240,7 +1263,7 @@ function showDetail(it) {
   $('dAuthor').textContent = upAuthor(it.author) || 'AUTEUR INCONNU';
   resetBio('d', it.author);
   $('dInfo').textContent = [it.page && 'Page ' + it.page, it.read_date && 'Lu le ' + formatDate(it.read_date)].filter(Boolean).join(' · ');
-  $('dTags').innerHTML = (it.tags || []).map((t) => `<span class="chip">#${esc(t)}</span>`).join('');
+  $('dTags').innerHTML = (it.tags || []).map((t) => `<span class="chip">#${esc(capTag(t))}</span>`).join('');
   $('dText').textContent = it.ocr_text || '';
   $('dText').style.display = it.ocr_text ? '' : 'none';
   $('dCopy').style.display = it.ocr_text ? '' : 'none';
