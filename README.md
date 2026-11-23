@@ -15,7 +15,7 @@ Fichiers : `index.html`, `config.js`, `manifest.webmanifest`, `sw.js`, `icon-180
 1. Créez un compte sur https://supabase.com → **New project**. Choisissez un nom (ex. `lecture`), un mot de passe de base de données (à garder de côté) et la région **Europe (Paris ou Frankfurt)**.
 2. Une fois le projet prêt : menu **SQL Editor** → **New query** → collez tout le contenu de `supabase-setup.sql` → **Run**. Cela crée la table, l'espace photos privé et les règles de sécurité.
 3. Menu **Authentication → Users** → **Add user → Create new user** : votre e-mail + un mot de passe, et cochez **Auto Confirm User**. C'est le compte avec lequel vous vous connecterez dans l'app.
-4. Menu **Authentication → Sign In / Providers** (ou *Settings*) : **désactivez « Allow new users to sign up »**. Ainsi personne d'autre ne pourra créer de compte sur votre base.
+4. Menu **Authentication → Sign In / Providers** (ou *Settings*) : laissez **« Allow new users to sign up »** désactivé si l'app est pour vous seul(e), ou activez-le pour ouvrir les inscriptions (voir « Plusieurs utilisateurs »).
 5. Menu **Project Settings → API** (ou *API Keys*) : copiez
    - l'**URL du projet** (`https://xxxx.supabase.co`)
    - la clé **anon** ou **publishable** (`sb_publishable_…`).
@@ -89,7 +89,17 @@ Ouvrez http://localhost:8000 dans Edge ou Chrome sous Windows, connectez-vous et
 
 Chaque personne a sa propre base d'extraits et de mots : elle ne voit que ses données.
 
-**Créer un compte** : Supabase → **Authentication → Users → Add user → Create new user** → e-mail + mot de passe provisoire, cochez **Auto Confirm User**. Envoyez-lui l'adresse de l'app, son e-mail et son mot de passe. Elle installe l'app (Safari → Partager → Sur l'écran d'accueil) et se connecte.
+**Inscriptions ouvertes** : n'importe qui ayant l'adresse de l'app peut créer son compte (lien « Créer un compte » sur l'écran de connexion). Pour cela, dans Supabase :
+1. **Authentication → Sign In / Providers** : activez **« Allow new users to sign up »**.
+2. **Confirm email** (même page, rubrique *Email*) :
+   - **désactivé** (le plus simple) : le compte est utilisable tout de suite ;
+   - **activé** : la personne reçoit un e-mail et doit toucher le lien avant de se connecter. Dans ce cas, allez dans **Authentication → URL Configuration** et mettez l'adresse Vercel de l'app (`https://lecture-xxxx.vercel.app`) dans **Site URL**. ⚠️ Le service d'e-mail gratuit de Supabase n'envoie que quelques e-mails par heure.
+
+**Mot de passe oublié** : sur l'écran de connexion, la personne tape son e-mail puis touche « Mot de passe oublié ? ». Elle reçoit un lien qui ouvre l'app pour choisir un nouveau mot de passe. Pour que le lien ramène bien à l'app : **Authentication → URL Configuration** → **Site URL** = l'adresse Vercel de l'app, et ajoutez-la aussi dans **Redirect URLs**. Un mot de passe peut aussi être changé dans ⚙︎ → **Changer mon mot de passe**.
+
+Pour inviter quelqu'un, envoyez-lui simplement l'adresse de l'app. Au premier lancement, un guide explique comment utiliser l'application (il reste accessible dans ⚙︎ → **Revoir le guide**).
+
+Vous pouvez toujours créer un compte à la main : **Authentication → Users → Add user → Create new user** → e-mail + mot de passe, cochez **Auto Confirm User**.
 
 ⚠️ La lecture des photos et les définitions par l'IA sont payées par **votre** crédit Anthropic, et tous les comptes partagent le 1 Go de photos gratuit de Supabase.
 
@@ -118,6 +128,10 @@ Pour retirer le rôle : `delete from public.admins;` dans le SQL Editor.
 > **Novembre 2026 — définition et langue par l'IA** : exécutez à nouveau `supabase-mots.sql` dans le SQL Editor (il ajoute la colonne « langue », sans rien effacer), redéployez la fonction `lire-texte` avec le nouveau `supabase/functions/lire-texte/index.ts`, puis renvoyez les fichiers sur GitHub.
 
 > **Novembre 2026 — liste de mots** : dans Supabase → **SQL Editor** → **New query**, collez tout le contenu de `supabase-mots.sql` → **Run** (une seule fois ; vos extraits ne sont pas touchés). Puis renvoyez `index.html`, `sw.js`, `README.md`, `supabase-setup.sql` et `supabase-mots.sql` sur GitHub.
+
+> **Novembre 2026 — mot de passe oublié** : dans Supabase, **Authentication → URL Configuration** : Site URL et Redirect URLs = adresse Vercel de l'app. Puis renvoyez `index.html`, `sw.js` et `README.md` sur GitHub.
+
+> **Novembre 2026 — inscriptions ouvertes et guide de bienvenue** : réglez Supabase comme indiqué dans « Plusieurs utilisateurs » (activer les inscriptions), puis renvoyez `index.html`, `sw.js` et `README.md` sur GitHub.
 
 > **Novembre 2026 — validation des bios d'auteurs** : exécutez `supabase-bios.sql` dans le SQL Editor de Supabase (il crée la table « bios », sans rien effacer), puis renvoyez `index.html` et `sw.js` sur GitHub.
 

@@ -1,5 +1,5 @@
 // Incrémenter VERSION à chaque mise à jour de l'application
-const VERSION = 'extraits-v20';
+const VERSION = 'extraits-v22';
 const FILES = ['./', './index.html', './config.js', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {

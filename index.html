@@ -117,6 +117,7 @@
   .section-title { font-size: 13px; color: var(--muted); margin-top: 16px; }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
   .actions button { flex: 1; }
+  .actions[hidden] { display: none; }
   .hint { font-size: 13px; color: var(--muted); }
   .suggest { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
   .suggest:empty { display: none; }
@@ -132,6 +133,13 @@
   .zoom img { width: 100%; display: block; margin-top: env(safe-area-inset-top); }
   .zoom button { position: fixed; top: calc(env(safe-area-inset-top) + 10px); right: 12px; background: rgba(0,0,0,.6); color: #fff; }
   .login { max-width: 420px; margin: 40px auto 0; }
+  .login-switch { text-align: center; margin-top: 18px; font-size: 15px; color: var(--muted); }
+  button.link { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; font-size: inherit; }
+  .login-ok { font-size: 14px; margin-top: 8px; }
+  .login-forgot { text-align: right; margin: 6px 0 0; font-size: 14px; }
+  .login-ok:empty { display: none; }
+  .guide h3 { margin: 18px 0 4px; font-size: 17px; }
+  .guide p { margin: 4px 0; line-height: 1.5; }
   .login h2 { text-align: center; font-size: 28px; font-weight: 800; }
   /* Administrateur : consultation d'un autre compte, en lecture seule */
   .viewing { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 10px; font-size: 14px;
@@ -429,6 +437,8 @@
     <div class="section-title">Administrateur : comptes des utilisateurs (lecture seule)</div>
     <div id="accounts"></div>
   </div>
+  <div class="actions"><button id="btnGuide">📖 Revoir le guide</button></div>
+  <div class="actions"><button id="btnPassword">🔑 Changer mon mot de passe</button></div>
   <div class="actions"><button class="danger" id="btnLogout">Se déconnecter</button></div>
 </section>
 
@@ -439,10 +449,59 @@
     <label for="lEmail">E-mail</label>
     <input id="lEmail" type="email" autocomplete="username" required>
     <label for="lPassword">Mot de passe</label>
-    <input id="lPassword" type="password" autocomplete="current-password" required>
+    <input id="lPassword" type="password" autocomplete="current-password" minlength="6" required>
+    <p class="hint" id="lPwHint" hidden>6 caractères minimum.</p>
+    <p class="login-forgot" id="lForgotRow"><button type="button" class="link" id="lForgot">Mot de passe oublié ?</button></p>
     <div class="actions"><button class="primary" type="submit" id="lSubmit">Se connecter</button></div>
     <div class="error" id="lError"></div>
-    <p class="hint">Le compte se crée une seule fois dans Supabase (voir le guide README).</p>
+    <p class="login-ok" id="lInfo"></p>
+    <p class="login-switch"><span id="lSwitchText">Pas encore de compte ?</span> <button type="button" class="link" id="lSwitch">Créer un compte</button></p>
+  </form>
+</section>
+
+<!-- Guide de bienvenue (première ouverture, ou ⚙︎ → Revoir le guide) -->
+<section class="sheet top" id="guideSheet">
+  <div class="login guide">
+    <h2>📚 Bienvenue !</h2>
+    <p>Ce carnet garde les passages de vos lectures et les mots que vous découvrez. Voici l'essentiel en une minute.</p>
+
+    <h3>📖 Ajouter un extrait</h3>
+    <p>Touchez le bouton <b>+</b> en bas de l'écran, puis photographiez la page. L'IA lit le texte pour vous.</p>
+    <p class="hint">Astuce : soulignez ou encadrez le passage au crayon, l'IA ne gardera que lui.</p>
+    <p>Complétez l'auteur, le livre et la page. <b>✨ Suggérer</b> propose des thèmes (tags) pour classer l'extrait.</p>
+
+    <h3>🔤 Noter un mot</h3>
+    <p>Dans l'onglet <b>Mots</b>, touchez <b>+</b> et tapez un mot découvert dans un livre. L'IA donne sa définition et sa langue.</p>
+
+    <h3>🔎 Retrouver</h3>
+    <p>Classez par auteur, par livre ou par date, utilisez la recherche, ou touchez un <b>#thème</b> pour filtrer les extraits.</p>
+
+    <h3>👤 Bio de l'auteur</h3>
+    <p>Dans la fiche d'un extrait ou d'un mot, touchez <b>Bio de l'auteur</b>. Relisez-la, corrigez-la si besoin, puis <b>validez</b>-la pour la garder.</p>
+
+    <h3>📲 Installer l'application</h3>
+    <p><b>iPhone</b> : dans Safari, touchez <b>Partager</b> puis <b>Sur l'écran d'accueil</b>.<br>
+       <b>Android</b> : dans Chrome, menu <b>⋮</b> puis <b>Ajouter à l'écran d'accueil</b>.</p>
+
+    <h3>⚙︎ Réglages</h3>
+    <p>Le bouton <b>⚙︎</b> en haut permet de faire une sauvegarde, de revoir ce guide et de se déconnecter.</p>
+
+    <div class="actions"><button class="primary" id="guideClose" type="button">C'est parti !</button></div>
+  </div>
+</section>
+
+<!-- Nouveau mot de passe (lien « mot de passe oublié » reçu par e-mail, ou ⚙︎ → Changer mon mot de passe) -->
+<section class="sheet top" id="pwSheet">
+  <form class="login" id="pwForm">
+    <h2>🔑 Nouveau mot de passe</h2>
+    <label for="pwNew">Nouveau mot de passe</label>
+    <input id="pwNew" type="password" autocomplete="new-password" minlength="6" required>
+    <label for="pwNew2">Confirmez le mot de passe</label>
+    <input id="pwNew2" type="password" autocomplete="new-password" minlength="6" required>
+    <p class="hint">6 caractères minimum.</p>
+    <div class="actions"><button class="primary" type="submit" id="pwSubmit">Enregistrer</button></div>
+    <div class="actions"><button type="button" id="pwCancel">Annuler</button></div>
+    <div class="error" id="pwError"></div>
   </form>
 </section>
 
@@ -469,6 +528,8 @@ const WORDS = 'mots';
 
 /* ---------- Supabase ---------- */
 const CFG = window.APP_CONFIG || {};
+// Arrivée par le lien « mot de passe oublié » (à lire avant que Supabase ne nettoie l'adresse)
+const recoveryLink = /type=recovery/.test(location.hash);
 const configured = !!(CFG.supabaseUrl && CFG.supabaseAnonKey && !/VOTRE/.test(CFG.supabaseUrl + CFG.supabaseAnonKey));
 const sb = configured && window.supabase ? window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey) : null;
 let user = null;
@@ -1949,24 +2010,130 @@ async function migrateOld() {
   }
 }
 
-/* ---------- Connexion ---------- */
-$('loginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
+/* ---------- Connexion / création de compte ---------- */
+let signupMode = false;
+function setLoginMode(signup) {
+  signupMode = signup;
+  $('lSubmit').textContent = signup ? 'Créer mon compte' : 'Se connecter';
+  $('lSwitchText').textContent = signup ? 'Déjà un compte ?' : 'Pas encore de compte ?';
+  $('lSwitch').textContent = signup ? 'Se connecter' : 'Créer un compte';
+  $('lPassword').autocomplete = signup ? 'new-password' : 'current-password';
+  $('lPwHint').hidden = !signup;
+  $('lForgotRow').hidden = signup;
   $('lError').textContent = '';
-  $('lSubmit').disabled = true;
-  const { data, error } = await sb.auth.signInWithPassword({ email: $('lEmail').value.trim(), password: $('lPassword').value });
-  $('lSubmit').disabled = false;
-  if (error) {
-    $('lError').textContent = /invalid/i.test(error.message) ? 'E-mail ou mot de passe incorrect.' : error.message;
-    return;
-  }
-  user = data.user;
+  $('lInfo').textContent = '';
+}
+$('lSwitch').addEventListener('click', () => setLoginMode(!signupMode));
+
+async function afterLogin(u) {
+  user = u;
   $('lPassword').value = '';
   closeSheet('loginSheet');
   await checkAdmin();
   await refresh();
   migrateOld();
+  maybeShowGuide();
+}
+
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('lError').textContent = '';
+  $('lInfo').textContent = '';
+  $('lSubmit').disabled = true;
+  const email = $('lEmail').value.trim();
+  const password = $('lPassword').value;
+  if (signupMode) {
+    const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } });
+    $('lSubmit').disabled = false;
+    if (error) {
+      const m = error.message;
+      $('lError').textContent = /registered|exists/i.test(m) ? 'Un compte existe déjà avec cet e-mail : connectez-vous.'
+        : /not allowed|disabled/i.test(m) ? 'Les inscriptions sont fermées.'
+        : /password/i.test(m) ? 'Mot de passe trop court ou trop simple (6 caractères minimum).'
+        : /rate limit/i.test(m) ? 'Trop de demandes, réessayez dans quelques minutes.'
+        : m;
+      return;
+    }
+    if (data.session) { await afterLogin(data.user); return; }
+    // Confirmation par e-mail activée dans Supabase
+    $('lPassword').value = '';
+    setLoginMode(false);
+    $('lInfo').textContent = '📧 Compte créé ! Ouvrez l\'e-mail de confirmation que vous venez de recevoir et touchez le lien, puis connectez-vous ici.';
+    return;
+  }
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  $('lSubmit').disabled = false;
+  if (error) {
+    $('lError').textContent = /not confirmed/i.test(error.message) ? 'Confirmez d\'abord votre e-mail : touchez le lien reçu par e-mail.'
+      : /invalid/i.test(error.message) ? 'E-mail ou mot de passe incorrect.' : error.message;
+    return;
+  }
+  await afterLogin(data.user);
 });
+
+/* ---------- Mot de passe oublié / changement de mot de passe ---------- */
+$('lForgot').addEventListener('click', async () => {
+  $('lError').textContent = '';
+  $('lInfo').textContent = '';
+  const email = $('lEmail').value.trim();
+  if (!email || !$('lEmail').checkValidity()) { $('lError').textContent = "Tapez d'abord votre e-mail ci-dessus, puis touchez « Mot de passe oublié ? »."; return; }
+  $('lForgot').disabled = true;
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+  $('lForgot').disabled = false;
+  if (error) {
+    $('lError').textContent = /rate limit/i.test(error.message) ? 'Trop de demandes, réessayez dans quelques minutes.' : error.message;
+    return;
+  }
+  $('lInfo').textContent = "📧 Si un compte existe avec cet e-mail, vous allez recevoir un lien. Touchez-le pour choisir un nouveau mot de passe (pensez à regarder dans les spams).";
+});
+
+let pwRecovery = false;
+function openPasswordSheet(recovery) {
+  pwRecovery = recovery;
+  $('pwNew').value = '';
+  $('pwNew2').value = '';
+  $('pwError').textContent = '';
+  $('pwCancel').parentElement.hidden = recovery; // via le lien e-mail : il faut choisir un mot de passe
+  openSheet('pwSheet');
+}
+$('btnPassword').addEventListener('click', () => openPasswordSheet(false));
+$('pwCancel').addEventListener('click', () => closeSheet('pwSheet'));
+$('pwForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('pwError').textContent = '';
+  if ($('pwNew').value !== $('pwNew2').value) { $('pwError').textContent = 'Les deux mots de passe ne sont pas identiques.'; return; }
+  $('pwSubmit').disabled = true;
+  const { error } = await sb.auth.updateUser({ password: $('pwNew').value });
+  $('pwSubmit').disabled = false;
+  if (error) {
+    const m = error.message;
+    $('pwError').textContent = /different|same/i.test(m) ? "Choisissez un mot de passe différent de l'ancien."
+      : /session|expired|jwt/i.test(m) ? 'Le lien a expiré : redemandez « Mot de passe oublié ? » depuis l\'écran de connexion.'
+      : /password/i.test(m) ? 'Mot de passe trop court ou trop simple (6 caractères minimum).' : m;
+    return;
+  }
+  $('pwNew').value = '';
+  $('pwNew2').value = '';
+  closeSheet('pwSheet');
+  toast('Mot de passe enregistré');
+  if (pwRecovery) { pwRecovery = false; maybeShowGuide(); }
+});
+if (sb) sb.auth.onAuthStateChange((event) => {
+  if (event === 'PASSWORD_RECOVERY' && !$('pwSheet').classList.contains('open')) openPasswordSheet(true);
+});
+
+/* ---------- Guide de bienvenue ---------- */
+const guideKey = () => 'guideVu:' + (user ? user.id : '');
+function maybeShowGuide() {
+  let seen = false;
+  try { seen = !!localStorage.getItem(guideKey()); } catch (e) { /* ignoré */ }
+  if (!seen) openSheet('guideSheet');
+}
+$('guideClose').addEventListener('click', () => {
+  try { localStorage.setItem(guideKey(), '1'); } catch (e) { /* ignoré */ }
+  closeSheet('guideSheet');
+});
+$('btnGuide').addEventListener('click', () => openSheet('guideSheet'));
 
 $('btnLogout').addEventListener('click', async () => {
   if (!confirm('Se déconnecter ? Les copies locales seront effacées de ce téléphone (vos extraits et vos mots restent dans Supabase).')) return;
@@ -2010,6 +2177,8 @@ async function start() {
   }
   user = data.session.user;
   await showCached();
+  if (recoveryLink) { if (!$('pwSheet').classList.contains('open')) openPasswordSheet(true); }
+  else maybeShowGuide();
   await checkAdmin();
   await refresh();
   migrateOld();
