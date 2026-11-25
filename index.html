@@ -76,6 +76,20 @@
   .thumb img:not([src]) { visibility: hidden; }
   .thumb span { position: absolute; left: 0; right: 0; bottom: 0; font-size: 11px; padding: 3px 5px;
     background: linear-gradient(transparent, rgba(0,0,0,.65)); color: #fff; text-align: left; }
+  /* ---------- Jeux ---------- */
+  body.tab-jeux #search, body.tab-jeux #tagBar, body.tab-jeux #btnAdd { display: none; }
+  .game { margin-top: 12px; }
+  .game-score { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 14px; }
+  .game-q { font-size: 15px; color: var(--muted); margin: 14px 0 6px; }
+  .game-word { font-size: 28px; font-weight: 800; margin: 4px 0 2px; }
+  .game .quote { max-height: 50vh; overflow-y: auto; }
+  .game-opts { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+  .game-opt { text-align: left; width: 100%; padding: 12px 14px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; line-height: 1.35; }
+  .game-opt small { display: block; color: var(--muted); margin-top: 2px; }
+  .game-opt.right { border-color: #3ddc97; background: rgba(61,220,151,.14); }
+  .game-opt.wrong { border-color: var(--danger); background: rgba(255,92,122,.12); }
+  .game-opt:disabled { opacity: 1; color: var(--ink); }
+  .game-feedback { margin-top: 12px; font-weight: 600; }
   .empty { text-align: center; color: var(--muted); padding: 60px 20px; }
   .fab { position: fixed; right: 20px; bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 6;
     width: 60px; height: 60px; border-radius: 50%; font-size: 30px; line-height: 1;
@@ -201,6 +215,7 @@
   <div class="tabs" id="tabs">
     <button data-tab="extraits" class="on">📖 Extraits</button>
     <button data-tab="mots">🔤 Mots</button>
+    <button data-tab="jeux" id="tabJeux" hidden>🎲 Jeux</button>
   </div>
   <input class="search" id="search" type="search" placeholder="Rechercher (texte, auteur, livre, tag…)">
   <div class="modes" id="modes"></div>
@@ -785,12 +800,13 @@ let items = [];
 let words = [];         // mots de vocabulaire
 let wordsMissing = false; // table « mots » pas encore créée dans Supabase
 let tab = 'extraits';   // onglet affiché : 'extraits' ou 'mots'
-try { if (localStorage.getItem('tab') === 'mots') tab = 'mots'; } catch (e) { /* ignoré */ }
+try { const t = localStorage.getItem('tab'); if (t === 'mots' || t === 'jeux') tab = t; } catch (e) { /* ignoré */ }
 const MODES = {
+  jeux: [['livre', '📖 Quel livre ?'], ['definition', '🔤 Quelle définition ?']],
   extraits: [['author', 'Par auteur'], ['book', 'Par livre'], ['recent', 'Récents']],
   mots: [['alpha', 'A → Z'], ['book', 'Par livre'], ['lang', 'Par langue'], ['recent', 'Récents']],
 };
-const modes = { extraits: 'author', mots: 'alpha' };
+const modes = { extraits: 'author', mots: 'alpha', jeux: 'livre' };
 let activeTag = null;
 let editing = null;     // extrait en cours de modification
 let pendingPhotos = []; // photos choisies dans le formulaire : { image, thumb, aiPromise, text, page }
@@ -906,12 +922,18 @@ function groupBy(list, keyFn) {
 const byPage = (a, b) => (parseInt(a.page, 10) || 1e9) - (parseInt(b.page, 10) || 1e9) || time(a.created_at) - time(b.created_at);
 const pageLabel = (it) => (it.page ? 'p. ' + it.page : '');
 
+// L'onglet Jeux n'apparaît qu'à partir de 5 extraits et 5 mots
+const MIN_JEUX = 5;
+const jeuxOuverts = () => items.length >= MIN_JEUX && words.length >= MIN_JEUX;
+
 function render() {
+  $('tabJeux').hidden = !jeuxOuverts() && tab !== 'jeux';
   const src = tab === 'mots' ? words : items;
   const allTags = tab === 'mots' ? [] : [...new Set(src.flatMap((i) => i.tags || []))].sort(collator.compare);
   if (activeTag && !allTags.includes(activeTag)) activeTag = null;
   $('tagBar').innerHTML = allTags.map((t) => `<button class="chip ${t === activeTag ? 'on' : ''}" data-tag="${esc(t)}">#${esc(capTag(t))}</button>`).join('');
   if (tab === 'mots') { renderWords(); return; }
+  if (tab === 'jeux') { renderGame(); return; }
   const mode = modes.extraits;
 
   const q = norm($('search').value);
@@ -966,6 +988,7 @@ $('search').addEventListener('input', render);
 function renderModes() {
   $('modes').innerHTML = MODES[tab].map(([m, label]) => `<button data-mode="${m}" class="${modes[tab] === m ? 'on' : ''}">${label}</button>`).join('');
   document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x.dataset.tab === tab));
+  document.body.classList.toggle('tab-jeux', tab === 'jeux');
   $('search').placeholder = tab === 'mots' ? 'Rechercher (mot, définition, livre…)' : 'Rechercher (texte, auteur, livre, tag…)';
   $('btnAdd').setAttribute('aria-label', tab === 'mots' ? 'Ajouter un mot' : 'Ajouter un extrait');
 }
@@ -1065,6 +1088,199 @@ function openForm(item) {
 }
 
 $('btnAdd').addEventListener('click', () => (tab === 'mots' ? openWordForm(null) : openForm(null)));
+
+/* ---------- Jeux (QCM à partir des extraits et des mots de l'utilisateur) ---------- */
+const games = {
+  livre: { deck: [], q: null },
+  definition: { deck: [], q: null },
+};
+const GAME_NAMES = { livre: '« Quel livre ? »', definition: '« Quelle définition ? »' };
+const PER_DAY = 5;     // questions par jour et par jeu
+const JEUX = 'jeux';   // table Supabase (voir supabase-jeux.sql)
+// Parties enregistrées : { uid, rows: [{ game, points, played_on }] } ; null = pas encore chargées
+let gameStats = null;
+let gameStatsError = '';
+let gameBusy = false;
+const today = () => new Date().toLocaleDateString('sv-SE'); // AAAA-MM-JJ, heure du téléphone
+const totalScore = () => gameStats.rows.reduce((n, r) => n + r.points, 0);
+const playedToday = (kind) => gameStats.rows.filter((r) => r.game === kind && r.played_on === today());
+
+async function loadGameStats() {
+  if (!sb || !user) return;
+  const uid = user.id;
+  const { data, error } = await sb.from(JEUX).select('game, points, played_on').eq('user_id', uid);
+  if (!user || user.id !== uid) return;
+  gameStatsError = error ? (/jeux|relation|schema cache/i.test(error.message) ? 'Exécutez supabase-jeux.sql dans Supabase (voir README).' : 'Score indisponible : ' + errMsg(error)) : '';
+  gameStats = error ? null : { uid, rows: data || [] };
+  if (tab === 'jeux') renderGame();
+}
+const shuffle = (arr) => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const escRe = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Extrait raccourci pour la question (coupé sur un mot)
+function shortText(t, max = 700) {
+  t = (t || '').trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  return cut.slice(0, cut.lastIndexOf(' ') > max * 0.6 ? cut.lastIndexOf(' ') : max) + ' […]';
+}
+// Définition sans le mot lui-même (« bruire (v.) : … » → « (v.) … », et le mot masqué)
+function cleanDef(w) {
+  let d = (w.definition || '').trim().replace(/^[^:()\n]{1,40}(\([^)]{1,20}\))\s*:\s*/, '$1 ');
+  const word = (w.word || '').trim();
+  if (word.length > 2) d = d.replace(new RegExp(escRe(word), 'giu'), '…');
+  return d;
+}
+
+// Livres distincts (par titre) qui ont au moins un extrait avec du texte
+function bookPool() {
+  const books = new Map();
+  for (const it of items) {
+    if (!it.title || !(it.ocr_text || '').trim()) continue;
+    const k = norm(it.title);
+    if (!books.has(k)) books.set(k, { key: k, title: it.title, author: it.author || '' });
+  }
+  return books;
+}
+function wordPool() {
+  return words.filter((w) => w.word && (w.definition || '').trim());
+}
+
+// Prochain élément du paquet : pas de répétition avant d'avoir tout vu
+function nextFromDeck(g, eligible) {
+  const ids = new Set(eligible.map((x) => x.id));
+  g.deck = g.deck.filter((id) => ids.has(id));
+  if (!g.deck.length) g.deck = shuffle([...ids]);
+  const id = g.deck.pop();
+  return eligible.find((x) => x.id === id);
+}
+
+function newQuestion(kind) {
+  const g = games[kind];
+  if (kind === 'livre') {
+    const books = bookPool();
+    if (books.size < 2) return null;
+    const it = nextFromDeck(g, items.filter((i) => i.title && (i.ocr_text || '').trim()));
+    const right = books.get(norm(it.title));
+    const others = shuffle([...books.values()].filter((b) => b.key !== right.key)).slice(0, 3);
+    return { kind, item: it, opts: shuffle([right, ...others]).map((b) => ({ key: b.key, label: b.title, sub: upAuthor(b.author) })), answer: right.key, picked: null };
+  }
+  const pool = wordPool();
+  const distinct = new Map(pool.map((w) => [norm(cleanDef(w)), w]));
+  if (distinct.size < 2) return null;
+  const w = nextFromDeck(g, pool);
+  const rightKey = norm(cleanDef(w));
+  const others = shuffle([...distinct.entries()].filter(([k]) => k !== rightKey)).slice(0, 3);
+  return { kind, item: w,
+    opts: shuffle([[rightKey, w], ...others]).map(([k, x]) => ({ key: k, label: cleanDef(x), sub: '' })),
+    answer: rightKey, picked: null };
+}
+
+function renderGame() {
+  const kind = modes.jeux;
+  const g = games[kind];
+  const main = $('list');
+  if (viewing) { main.innerHTML = '<div class="empty"><p>Les jeux ne sont disponibles que sur votre propre compte.</p></div>'; return; }
+  if (!jeuxOuverts()) {
+    main.innerHTML = `<div class="empty"><p style="font-size:40px;margin:0">🎲</p><p>Les jeux s'ouvrent à partir de <b>${MIN_JEUX} extraits</b> et <b>${MIN_JEUX} mots</b>.</p>
+      <p>Vous avez ${items.length} extrait${items.length > 1 ? 's' : ''} et ${words.length} mot${words.length > 1 ? 's' : ''}.</p></div>`;
+    return;
+  }
+  if (!user || !gameStats || gameStats.uid !== user.id) {
+    main.innerHTML = `<div class="empty"><p>${gameStatsError ? '⚠️ ' + esc(gameStatsError) : 'Chargement du score…'}</p>${gameStatsError ? '<div class="actions"><button data-game="reload">Réessayer</button></div>' : ''}</div>`;
+    if (!gameStatsError) loadGameStats();
+    return;
+  }
+  const done = playedToday(kind);
+  const left = PER_DAY - done.length;
+  const head = `<div class="game-score"><span>🏆 Score total : <b>${totalScore()}</b> points</span><span>Aujourd'hui : ${done.length} / ${PER_DAY}</span></div>`;
+
+  // Question gardée telle quelle si les données sont rechargées en arrière-plan
+  if (g.q && !(g.q.kind === 'livre' ? items : words).some((x) => x.id === g.q.item.id)) g.q = null;
+  if (!g.q && left <= 0) {
+    const pts = done.reduce((n, r) => n + r.points, 0);
+    const other = kind === 'livre' ? 'definition' : 'livre';
+    const otherLeft = PER_DAY - playedToday(other).length;
+    main.innerHTML = `<div class="game">${head}<div class="empty" style="padding-top:30px"><p style="font-size:40px;margin:0">🎉</p>
+      <p>Vous avez joué vos ${PER_DAY} questions ${GAME_NAMES[kind]} aujourd'hui<br>(${done.filter((r) => r.points > 0).length} réussie(s), <b>${pts > 0 ? '+' : ''}${pts} points</b>).</p>
+      <p>Revenez demain !</p>
+      ${otherLeft > 0 ? `<div class="actions"><button class="primary" data-game="switch" data-to="${other}">Jouer à ${GAME_NAMES[other]} (${otherLeft} restante${otherLeft > 1 ? 's' : ''})</button></div>` : ''}
+      </div></div>`;
+    return;
+  }
+  if (!g.q) g.q = newQuestion(kind);
+  const q = g.q;
+  if (!q) {
+    main.innerHTML = `<div class="game">${head}<div class="empty"><p style="font-size:40px;margin:0">🎲</p><p>${kind === 'livre'
+      ? 'Pour jouer, il faut des extraits (avec leur texte) d\'au moins <b>2 livres différents</b>.'
+      : 'Pour jouer, il faut au moins <b>2 mots</b> avec une définition.'}</p></div></div>`;
+    return;
+  }
+  const answered = q.picked != null;
+  const it = q.item;
+  const body = kind === 'livre'
+    ? `<div class="game-q">Question ${done.length + (answered ? 0 : 1)} / ${PER_DAY} · De quel livre vient cet extrait ?</div><div class="quote">${esc(shortText(it.ocr_text))}</div>`
+    : `<div class="game-q">Question ${done.length + (answered ? 0 : 1)} / ${PER_DAY} · Que veut dire ce mot ?</div><div class="game-word">${esc(it.word)}</div>${isFrench(it.language) ? '' : `<div class="hint">(${esc(it.language)})</div>`}`;
+  const opts = q.opts.map((o, i) => {
+    const cls = !answered ? '' : o.key === q.answer ? 'right' : o.key === q.picked ? 'wrong' : '';
+    return `<button class="game-opt ${cls}" data-game="pick" data-i="${i}" ${answered || gameBusy ? 'disabled' : ''}>${esc(o.label)}${o.sub ? `<small>${esc(o.sub)}</small>` : ''}</button>`;
+  }).join('');
+  let feedback = '';
+  if (answered) {
+    const good = q.picked === q.answer;
+    const extra = kind === 'livre'
+      ? `« ${esc(it.title)} »${it.author ? ', ' + esc(upAuthor(it.author)) : ''}${it.page ? ', p. ' + esc(it.page) : ''}`
+      : `${esc(it.word)} : ${esc(it.definition)}`;
+    feedback = `<div class="game-feedback">${good ? '✅ Bravo ! +3 points' : '❌ Raté… −3 points'}</div><p class="hint" style="font-size:14px">${extra}</p>
+      <div class="actions"><button class="primary" data-game="next">${left > 0 ? 'Question suivante ›' : 'Voir le bilan du jour'}</button></div>`;
+  }
+  main.innerHTML = `<div class="game">${head}${body}<div class="game-opts">${opts}</div>${feedback}</div>`;
+}
+
+$('list').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-game]');
+  if (!b || tab !== 'jeux') return;
+  const kind = modes.jeux;
+  const g = games[kind];
+  const action = b.dataset.game;
+  if (action === 'pick' && g.q && g.q.picked == null && !gameBusy) {
+    const q = g.q;
+    const key = q.opts[+b.dataset.i].key;
+    const correct = key === q.answer;
+    // Enregistrée dans Supabase avant d'afficher la réponse (la limite de 5 par jour y est vérifiée)
+    gameBusy = true;
+    renderGame();
+    const { data, error } = await sb.from(JEUX).insert({ game: kind, correct, points: correct ? 3 : -3, played_on: today() }).select('game, points, played_on').single();
+    gameBusy = false;
+    if (error) {
+      if (/Limite/i.test(error.message)) {
+        toast(`Les ${PER_DAY} questions du jour sont déjà jouées (sur un autre appareil ?)`);
+        g.q = null;
+        await loadGameStats();
+      } else {
+        toast(/jeux|relation|schema cache/i.test(error.message) ? 'Exécutez supabase-jeux.sql dans Supabase (voir README)' : 'Réponse non enregistrée : ' + errMsg(error));
+      }
+      renderGame();
+      return;
+    }
+    gameStats.rows.push(data);
+    if (g.q === q) q.picked = key;
+    renderGame();
+  } else if (action === 'next') {
+    g.q = null;
+    renderGame();
+    window.scrollTo(0, 0);
+  } else if (action === 'switch') {
+    modes.jeux = b.dataset.to;
+    renderModes();
+    renderGame();
+  } else if (action === 'reload') {
+    gameStatsError = '';
+    gameStats = null;
+    renderGame();
+  }
+});
+
 $('btnPhoto').addEventListener('click', () => $('fileInput').click());
 $('fileInput').addEventListener('change', async (e) => {
   const files = [...e.target.files];
@@ -2141,6 +2357,9 @@ $('btnLogout').addEventListener('click', async () => {
   user = null;
   viewing = null;
   isAdmin = false;
+  gameStats = null;
+  games.livre.q = null;
+  games.definition.q = null;
   document.body.classList.remove('readonly');
   $('viewBanner').hidden = true;
   $('adminBlock').style.display = 'none';

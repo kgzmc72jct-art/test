@@ -129,6 +129,8 @@ Pour retirer le rôle : `delete from public.admins;` dans le SQL Editor.
 
 > **Novembre 2026 — liste de mots** : dans Supabase → **SQL Editor** → **New query**, collez tout le contenu de `supabase-mots.sql` → **Run** (une seule fois ; vos extraits ne sont pas touchés). Puis renvoyez `index.html`, `sw.js`, `README.md`, `supabase-setup.sql` et `supabase-mots.sql` sur GitHub.
 
+> **Novembre 2026 — score des jeux** : exécutez `supabase-jeux.sql` dans le SQL Editor de Supabase (il crée la table « jeux », sans rien effacer), puis renvoyez `index.html` et `sw.js` sur GitHub. Chaque jeu se joue 5 fois par jour ; +3 points par bonne réponse, −3 par erreur ; le score total est conservé dans Supabase.
+
 > **Novembre 2026 — mot de passe oublié** : dans Supabase, **Authentication → URL Configuration** : Site URL et Redirect URLs = adresse Vercel de l'app. Puis renvoyez `index.html`, `sw.js` et `README.md` sur GitHub.
 
 > **Novembre 2026 — inscriptions ouvertes et guide de bienvenue** : réglez Supabase comme indiqué dans « Plusieurs utilisateurs » (activer les inscriptions), puis renvoyez `index.html`, `sw.js` et `README.md` sur GitHub.
