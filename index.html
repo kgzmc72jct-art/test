@@ -926,7 +926,7 @@ const pageLabel = (it) => (it.page ? 'p. ' + it.page : '');
 const MIN_JEUX = 5;
 const jeuxOuverts = () => items.length >= MIN_JEUX && words.length >= MIN_JEUX;
 
-// « Quel auteur ? » n'apparaît qu'à partir de 5 auteurs différents (extraits avec texte)
+// « Quel auteur ? » n'apparaît qu'à partir de 5 auteurs différents (extraits et mots)
 const MIN_AUTEURS = 5;
 const jeuAuteurOuvert = () => authorPool().size >= MIN_AUTEURS;
 
@@ -1115,10 +1115,14 @@ const playedToday = (kind) => gameStats.rows.filter((r) => r.game === kind && r.
 async function loadGameStats() {
   if (!sb || !user) return;
   const uid = user.id;
-  const { data, error } = await sb.from(JEUX).select('game, points, played_on').eq('user_id', uid);
+  const [{ data, error }, bios] = await Promise.all([
+    sb.from(JEUX).select('game, points, played_on').eq('user_id', uid),
+    sb.from(BIOS).select('author_key, author, bio').eq('user_id', uid),
+  ]);
   if (!user || user.id !== uid) return;
   gameStatsError = error ? (/jeux|relation|schema cache/i.test(error.message) ? 'Exécutez supabase-jeux.sql dans Supabase (voir README).' : 'Score indisponible : ' + errMsg(error)) : '';
-  gameStats = error ? null : { uid, rows: data || [] };
+  // Bios validées (table absente → aucune) : elles servent au jeu « Quel auteur ? »
+  gameStats = error ? null : { uid, rows: data || [], bios: (bios.data || []).map((b) => ({ ...b, id: b.author_key })) };
   if (tab === 'jeux') renderGame();
 }
 const shuffle = (arr) => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -1149,15 +1153,32 @@ function bookPool() {
   }
   return books;
 }
-// Auteurs distincts (« Victor Hugo » = « Hugo, Victor ») qui ont au moins un extrait avec du texte
+// Auteurs distincts (« Victor Hugo » = « Hugo, Victor ») présents dans les extraits et les mots
 function authorPool() {
   const authors = new Map();
-  for (const it of items) {
-    if (!(it.author || '').trim() || !(it.ocr_text || '').trim()) continue;
+  for (const it of [...items, ...words]) {
+    if (!(it.author || '').trim()) continue;
     const k = bioKey(it.author);
     if (!authors.has(k)) authors.set(k, { key: k, name: upAuthor(it.author) });
   }
   return authors;
+}
+// Bio sans le nom de l'auteur : chaque mot du nom (« HUGO », « Victor »…) est remplacé par « … »
+function maskBio(b) {
+  const key = (x) => norm(x).replace(/’/g, "'").replace(/^[dl]'/, ''); // « D’Ormesson » → « ormesson »
+  const names = new Set();
+  const add = (n) => (n || '').split(/[\s,-]+/).forEach((part) => {
+    const k = key(part);
+    if (k.length > 2 && !/^(les|des|del|der|den|van|von|della)$/.test(k)) names.add(k);
+  });
+  add(b.author);
+  [...items, ...words].forEach((x) => { if (x.author && bioKey(x.author) === b.author_key) add(x.author); });
+  // Chaque morceau d'un mot composé est testé (« Victor-Marie » → « …-Marie »)
+  return b.bio.replace(/[\p{L}'’]+/gu, (tok) => {
+    if (!names.has(key(tok))) return tok;
+    const m = tok.match(/^[dlDL]['’]/);
+    return (m ? m[0] : '') + '…';
+  });
 }
 function wordPool() {
   return words.filter((w) => w.word && (w.definition || '').trim());
@@ -1183,12 +1204,15 @@ function newQuestion(kind) {
     return { kind, item: it, opts: shuffle([right, ...others]).map((b) => ({ key: b.key, label: b.title, sub: upAuthor(b.author) })), answer: right.key, picked: null };
   }
   if (kind === 'auteur') {
+    // Question : une bio validée (nom masqué) ; réponses : les auteurs du carnet
+    const bios = gameStats.bios;
+    if (!bios.length) return null;
+    const b = nextFromDeck(g, bios);
     const authors = authorPool();
-    if (authors.size < 2) return null;
-    const it = nextFromDeck(g, items.filter((i) => (i.author || '').trim() && (i.ocr_text || '').trim()));
-    const right = authors.get(bioKey(it.author));
+    const right = authors.get(b.author_key) || { key: b.author_key, name: b.author };
     const others = shuffle([...authors.values()].filter((a) => a.key !== right.key)).slice(0, 3);
-    return { kind, item: it, opts: shuffle([right, ...others]).map((a) => ({ key: a.key, label: a.name, sub: '' })), answer: right.key, picked: null };
+    if (!others.length) return null;
+    return { kind, item: b, masked: maskBio(b), opts: shuffle([right, ...others]).map((a) => ({ key: a.key, label: a.name, sub: '' })), answer: right.key, picked: null };
   }
   const pool = wordPool();
   const distinct = new Map(pool.map((w) => [norm(cleanDef(w)), w]));
@@ -1225,7 +1249,7 @@ function renderGame() {
   const head = `<div class="game-score"><span>🏆 Score total : <b>${totalScore()}</b> points</span><span>Aujourd'hui : ${done.length} / ${PER_DAY}</span></div>`;
 
   // Question gardée telle quelle si les données sont rechargées en arrière-plan
-  if (g.q && !(g.q.kind === 'definition' ? words : items).some((x) => x.id === g.q.item.id)) g.q = null;
+  if (g.q && !(g.q.kind === 'definition' ? words : g.q.kind === 'auteur' ? gameStats.bios : items).some((x) => x.id === g.q.item.id)) g.q = null;
   if (!g.q && left <= 0) {
     const pts = done.reduce((n, r) => n + r.points, 0);
     const others = MODES.jeux.map(([m]) => m).filter((m) => m !== kind && (m !== 'auteur' || jeuAuteurOuvert()))
@@ -1242,13 +1266,18 @@ function renderGame() {
   if (!q) {
     main.innerHTML = `<div class="game">${head}<div class="empty"><p style="font-size:40px;margin:0">🎲</p><p>${kind === 'livre'
       ? 'Pour jouer, il faut des extraits (avec leur texte) d\'au moins <b>2 livres différents</b>.'
+      : kind === 'auteur'
+      ? 'Ce jeu utilise les <b>bios d\'auteurs que vous avez validées</b>. Ouvrez un extrait, touchez <b>👤 Bio de l\'auteur</b> puis <b>✅ Valider</b> : chaque bio validée devient une question.'
       : 'Pour jouer, il faut au moins <b>2 mots</b> avec une définition.'}</p></div></div>`;
     return;
   }
   const answered = q.picked != null;
   const it = q.item;
-  const body = kind !== 'definition'
-    ? `<div class="game-q">Question ${done.length + (answered ? 0 : 1)} / ${PER_DAY} · ${kind === 'livre' ? 'De quel livre vient cet extrait ?' : 'Qui a écrit cet extrait ?'}</div><div class="quote">${esc(shortText(it.ocr_text))}</div>`
+  const qnum = `Question ${done.length + (answered ? 0 : 1)} / ${PER_DAY}`;
+  const body = kind === 'livre'
+    ? `<div class="game-q">${qnum} · De quel livre vient cet extrait ?</div><div class="quote">${esc(shortText(it.ocr_text))}</div>`
+    : kind === 'auteur'
+    ? `<div class="game-q">${qnum} · De quel auteur est-ce la biographie ?</div><div class="note bio">${esc(answered ? it.bio : q.masked)}</div>`
     : `<div class="game-q">Question ${done.length + (answered ? 0 : 1)} / ${PER_DAY} · Que veut dire ce mot ?</div><div class="game-word">${esc(it.word)}</div>${isFrench(it.language) ? '' : `<div class="hint">(${esc(it.language)})</div>`}`;
   const opts = q.opts.map((o, i) => {
     const cls = !answered ? '' : o.key === q.answer ? 'right' : o.key === q.picked ? 'wrong' : '';
@@ -1260,7 +1289,7 @@ function renderGame() {
     const extra = kind === 'livre'
       ? `« ${esc(it.title)} »${it.author ? ', ' + esc(upAuthor(it.author)) : ''}${it.page ? ', p. ' + esc(it.page) : ''}`
       : kind === 'auteur'
-      ? `${esc(upAuthor(it.author))}${it.title ? ', « ' + esc(it.title) + ' »' : ''}${it.page ? ', p. ' + esc(it.page) : ''}`
+      ? `C'était ${esc(it.author)}.`
       : `${esc(it.word)} : ${esc(it.definition)}`;
     feedback = `<div class="game-feedback">${good ? '✅ Bravo ! +3 points' : '❌ Raté… −3 points'}</div><p class="hint" style="font-size:14px">${extra}</p>
       <div class="actions"><button class="primary" data-game="next">${left > 0 ? 'Question suivante ›' : 'Voir le bilan du jour'}</button></div>`;
@@ -1488,6 +1517,10 @@ async function validateBio(p, text) {
     return;
   }
   bioValid[user.id + '|' + key] = bio;
+  if (gameStats && gameStats.uid === user.id) {
+    gameStats.bios = gameStats.bios.filter((b) => b.author_key !== key);
+    gameStats.bios.push({ author_key: key, author: upAuthor(author), bio, id: key });
+  }
   delete bioDraft[key];
   displayBio(p, bio, true);
   toast('Bio enregistrée');
