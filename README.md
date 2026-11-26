@@ -121,6 +121,8 @@ Pour retirer le rôle : `delete from public.admins;` dans le SQL Editor.
 
 ## Mettre à jour l'app
 
+> **Novembre 2026 — extrait sur plusieurs pages** : renvoyez `index.html` et `sw.js` sur GitHub. Puis, de préférence, redéployez la fonction `lire-texte` (Supabase → Edge Functions → `lire-texte` → *Code* → collez le nouveau contenu de `supabase/functions/lire-texte/index.ts` → *Deploy*) : l'IA recolle mieux les phrases coupées entre deux pages et indique « 42-43 ». Utilisation : prenez une photo par page, puis cochez « Ces photos forment un seul extrait ».
+
 > **Novembre 2026 — nouveau look « Sombre & néon »** : renvoyez `index.html`, `sw.js`, `manifest.webmanifest` et les 3 icônes `icon-*.png` sur GitHub. Pour voir la nouvelle icône sur l'iPhone, supprimez l'app de l'écran d'accueil puis réinstallez-la (Safari → Partager → Sur l'écran d'accueil) : vos données ne sont pas touchées.
 
 > **Novembre 2026 — compte administrateur** : exécutez `supabase-admin.sql` (voir « Compte administrateur » ci-dessus), puis renvoyez `index.html`, `sw.js`, `README.md` et `supabase-admin.sql` sur GitHub.
@@ -128,6 +130,8 @@ Pour retirer le rôle : `delete from public.admins;` dans le SQL Editor.
 > **Novembre 2026 — définition et langue par l'IA** : exécutez à nouveau `supabase-mots.sql` dans le SQL Editor (il ajoute la colonne « langue », sans rien effacer), redéployez la fonction `lire-texte` avec le nouveau `supabase/functions/lire-texte/index.ts`, puis renvoyez les fichiers sur GitHub.
 
 > **Novembre 2026 — liste de mots** : dans Supabase → **SQL Editor** → **New query**, collez tout le contenu de `supabase-mots.sql` → **Run** (une seule fois ; vos extraits ne sont pas touchés). Puis renvoyez `index.html`, `sw.js`, `README.md`, `supabase-setup.sql` et `supabase-mots.sql` sur GitHub.
+
+> **Novembre 2026 — rapport mensuel** (⚙︎ → 📊 Rapport mensuel) : exécutez de nouveau `supabase-bios.sql` dans le SQL Editor (il ajoute la date d'ajout des bios, sans rien effacer), puis renvoyez `index.html` et `sw.js` sur GitHub.
 
 > **Novembre 2026 — jeu « Quel auteur ? »** : exécutez de nouveau `supabase-jeux.sql` dans le SQL Editor de Supabase (il autorise le nouveau jeu, sans rien effacer), puis renvoyez `index.html` et `sw.js` sur GitHub.
 

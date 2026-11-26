@@ -107,6 +107,9 @@
   .previews { display: flex; gap: 8px; overflow-x: auto; margin-top: 8px; }
   .previews img { height: 120px; border-radius: 8px; }
   .previews.big img { height: auto; width: 100%; }
+  .join-row { display: flex; align-items: flex-start; gap: 10px; margin-top: 10px; padding: 10px 12px; font-size: 15px; color: inherit;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+  .join-row input { width: 20px; height: 20px; margin: 1px 0 0; flex: none; }
   /* Laisse iOS proposer « Texte en direct » sur les photos */
   .previews img, .detail-img { -webkit-touch-callout: default; -webkit-user-select: auto; user-select: auto; }
   .help { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 10px; font-size: 14px; }
@@ -257,8 +260,12 @@
   </div>
   <input type="file" id="fileInput" accept="image/*" multiple hidden>
   <button class="photo-btn" id="btnPhoto">📷 Prendre / choisir une photo</button>
-  <div class="hint" id="photoHint" style="margin-top:6px">Plusieurs photos possibles : un extrait sera créé par photo, avec les mêmes infos.</div>
+  <div class="hint" id="photoHint" style="margin-top:6px">Plusieurs photos possibles : un extrait par photo, ou un seul extrait si le passage est sur plusieurs pages.</div>
   <div class="previews" id="previews"></div>
+  <label class="join-row" id="joinRow" style="display:none">
+    <input type="checkbox" id="fJoin">
+    <span>Ces photos forment <b>un seul extrait</b> (passage sur plusieurs pages)</span>
+  </label>
 
   <div id="textBlock">
     <div class="label-row">
@@ -293,7 +300,7 @@
   <div class="two">
     <div>
       <label for="fPage">Page</label>
-      <input id="fPage" inputmode="numeric" placeholder="ex. 42">
+      <input id="fPage" placeholder="ex. 42 ou 42-43">
     </div>
     <div>
       <label for="fDate">Date de lecture</label>
@@ -755,8 +762,8 @@ function startAI(photo) {
       photo.text = r.texte;
       photo.page = r.page;
       if (pendingPhotos.length === 1 && pendingPhotos[0] === photo) {
-        if (!$('fText').value.trim()) $('fText').value = r.texte;
-        if (!$('fPage').value.trim() && r.page) $('fPage').value = r.page;
+        if (!$('fText').value.trim()) { $('fText').value = r.texte; $('fText').dataset.auto = r.texte; }
+        if (!$('fPage').value.trim() && r.page) { $('fPage').value = r.page; $('fPage').dataset.auto = r.page; }
       }
     })
     .catch((e) => {
@@ -769,6 +776,7 @@ function startAI(photo) {
       const failed = pendingPhotos.filter((p) => p.aiError);
       if (done.length === pendingPhotos.length) {
         $('ocrStatus').textContent = failed.length ? '⚠️ ' + failed[0].aiError : '✓ Texte lu — pensez à le relire.';
+        if (isJoined()) fillJoined();
         // Suggestion automatique des thèmes (texte du formulaire, ou de la 1re photo lue si plusieurs)
         const texte = $('textBlock').style.display === 'none'
           ? (pendingPhotos.find((p) => p.text) || {}).text
@@ -776,6 +784,74 @@ function startAI(photo) {
         runTagSuggest(texte);
       }
     });
+}
+
+/* ---------- Extrait sur plusieurs pages (plusieurs photos réunies) ---------- */
+// En modification, les nouvelles photos remplacent l'ancienne et forment toujours un seul extrait
+const isJoined = () => pendingPhotos.length > 1 && (!!editing || $('fJoin').checked);
+
+// Recolle le texte des pages : mot coupé (« re- » + « garda ») ou phrase qui continue
+function joinTexts(texts) {
+  return texts.map((t) => (t || '').trim()).filter(Boolean).reduce((acc, t) => {
+    if (!acc) return t;
+    if (/\p{L}[-‐]$/u.test(acc) && /^\p{Ll}/u.test(t)) return acc.slice(0, -1) + t;
+    if (/^\p{Ll}/u.test(t) || !/[.!?…»"”:)]$/.test(acc)) return acc + ' ' + t;
+    return acc + '\n\n' + t;
+  }, '');
+}
+
+// « 42 » + « 43 » → « 42-43 »
+function pageRange(pages) {
+  const p = pages.map((s) => (s || '').trim()).filter(Boolean);
+  if (!p.length) return '';
+  const first = p[0].split(/\s*[-–]\s*/)[0];
+  const last = p[p.length - 1].split(/\s*[-–]\s*/).pop();
+  return first === last ? first : first + '-' + last;
+}
+
+// Remplit le formulaire avec le texte réuni des photos (sans écraser un texte saisi à la main)
+function fillJoined(force) {
+  const texte = joinTexts(pendingPhotos.map((p) => p.text));
+  const page = pageRange(pendingPhotos.map((p) => p.page));
+  const cur = $('fText').value.trim();
+  if (force || !cur || cur === $('fText').dataset.auto) {
+    $('fText').value = texte;
+    $('fText').dataset.auto = texte;
+    $('ocrStatus').textContent = texte ? `✓ Texte des ${pendingPhotos.length} photos réuni — pensez à le relire.` : 'Aucun texte trouvé sur les photos.';
+  } else if (texte && texte !== cur) {
+    $('ocrStatus').innerHTML = `✓ Texte des ${pendingPhotos.length} photos lu. <button class="small" type="button" id="btnUseJoined">Remplacer le texte actuel</button>`;
+  }
+  const curPage = $('fPage').value.trim();
+  if (page && (!curPage || curPage === $('fPage').dataset.auto)) {
+    $('fPage').value = page;
+    $('fPage').dataset.auto = page;
+  }
+  return texte;
+}
+
+// Image enregistrée : les pages les unes sous les autres
+async function combinePhotos(photos) {
+  const imgs = [];
+  for (const p of photos) imgs.push(await loadImage(p.image));
+  const width = Math.min(1400, Math.max(...imgs.map((i) => i.naturalWidth)));
+  const gap = 12;
+  const heights = imgs.map((i) => Math.round(i.naturalHeight * width / i.naturalWidth));
+  const total = heights.reduce((a, b) => a + b, 0) + gap * (imgs.length - 1);
+  const scale = Math.min(1, 4000 / total); // limite de taille des images sur iPhone
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(total * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#bbb';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  let y = 0;
+  imgs.forEach((img, i) => {
+    ctx.drawImage(img, 0, Math.round(y * scale), canvas.width, Math.round(heights[i] * scale));
+    y += heights[i] + gap;
+  });
+  const image = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+  // Miniature : la première page
+  return { image, thumb: photos[0].thumb };
 }
 
 /* ---------- Texte collé ---------- */
@@ -1087,10 +1163,22 @@ function showPreviews() {
 }
 
 function updateTextBlock() {
-  const multi = !editing && pendingPhotos.length > 1;
+  const multi = !editing && pendingPhotos.length > 1 && !isJoined();
   $('textBlock').style.display = multi ? 'none' : '';
   $('multiHint').style.display = multi ? '' : 'none';
+  $('joinRow').style.display = !editing && pendingPhotos.length > 1 ? '' : 'none';
 }
+
+$('fJoin').addEventListener('change', () => {
+  updateTextBlock();
+  if (isJoined() && pendingPhotos.every((p) => p.text !== undefined)) fillJoined();
+});
+
+$('ocrStatus').addEventListener('click', (e) => {
+  if (e.target.id !== 'btnUseJoined') return;
+  fillJoined(true);
+  runTagSuggest($('fText').value.trim());
+});
 
 function openForm(item) {
   if (!canWrite()) return;
@@ -1098,8 +1186,13 @@ function openForm(item) {
   pendingPhotos = [];
   clearPreviews();
   $('formTitle').textContent = item ? "Modifier l'extrait" : 'Nouvel extrait';
-  $('fileInput').multiple = !item;
-  $('photoHint').style.display = item ? 'none' : '';
+  $('fileInput').multiple = true;
+  $('fJoin').checked = false;
+  delete $('fText').dataset.auto;
+  delete $('fPage').dataset.auto;
+  $('photoHint').textContent = item
+    ? 'Passage sur plusieurs pages ? Ajoutez une photo par page : elles remplaceront la photo actuelle.'
+    : 'Plusieurs photos possibles : un extrait par photo, ou un seul extrait si le passage est sur plusieurs pages.';
   $('btnPhoto').textContent = item ? '📷 Remplacer la photo' : '📷 Prendre / choisir une photo';
   $('ocrStatus').textContent = '';
 
@@ -1374,7 +1467,6 @@ $('fileInput').addEventListener('change', async (e) => {
   const files = [...e.target.files];
   e.target.value = '';
   if (!files.length) return;
-  if (editing) pendingPhotos = [];
   $('btnPhoto').disabled = true;
   $('btnPhoto').textContent = '⏳ Traitement…';
   try {
@@ -1389,11 +1481,32 @@ $('fileInput').addEventListener('change', async (e) => {
   updateTextBlock();
   if (!aiUnavailable) pendingPhotos.filter((p) => !p.aiPromise).forEach(startAI);
   $('btnPhoto').disabled = false;
-  $('btnPhoto').textContent = editing ? '📷 Remplacer la photo' : '📷 Ajouter une autre photo';
+  $('btnPhoto').textContent = '📷 Ajouter une autre photo';
 });
 
 $('btnAi').addEventListener('click', async () => {
   if (!canWrite()) return;
+  // Plusieurs pages réunies : relit chaque photo puis recolle les textes
+  if (isJoined()) {
+    if ($('fText').value.trim() && !confirm('Remplacer le texte actuel par une nouvelle lecture ?')) return;
+    aiUnavailable = false;
+    const btn = $('btnAi');
+    btn.disabled = true;
+    const photos = pendingPhotos;
+    try {
+      for (let i = 0; i < photos.length; i++) {
+        const r = await queueAI(photos[i], `(${i + 1}/${photos.length})`);
+        photos[i].text = r.texte;
+        photos[i].page = r.page;
+        delete photos[i].aiError;
+      }
+      if (photos === pendingPhotos) runTagSuggest(fillJoined(true));
+    } catch (e) {
+      $('ocrStatus').textContent = '⚠️ ' + e.message;
+    }
+    btn.disabled = false;
+    return;
+  }
   let blob;
   try {
     blob = pendingPhotos[0] ? pendingPhotos[0].image : editing ? await getBlob(editing.image_path) : null;
@@ -1635,7 +1748,7 @@ $('btnTags').addEventListener('click', async () => {
   let texte = $('fText').value.trim();
   if (!texte && !editing && pendingPhotos.length > 1) {
     await Promise.all(pendingPhotos.map((p) => p.aiPromise));
-    texte = pendingPhotos[0].text || '';
+    texte = isJoined() ? $('fText').value.trim() : pendingPhotos[0].text || '';
   }
   if (!texte && pendingPhotos[0] && pendingPhotos[0].aiPromise) {
     $('tagSuggest').innerHTML = '<span class="hint">✨ Attente de la lecture du texte…</span>';
@@ -1678,12 +1791,19 @@ $('formSave').addEventListener('click', async () => {
   const btn = $('formSave');
   btn.disabled = true;
   btn.textContent = '⏳';
-  const photos = pendingPhotos;
+  let photos = pendingPhotos;
   const wasEditing = editing;
+  const joined = isJoined();
   try {
     if (photos.some((p) => p.aiPromise && p.text === undefined)) {
       btn.textContent = '⏳ Lecture du texte…';
       await Promise.all(photos.map((p) => p.aiPromise));
+    }
+    if (joined) {
+      // Un seul extrait : texte réuni, numéros de page « 42-43 », photos assemblées
+      if (!$('fText').value.trim()) fillJoined();
+      data.page = $('fPage').value.trim();
+      photos = [await combinePhotos(photos)];
     }
     if (wasEditing) {
       const update = { ...data, ocr_text: $('fText').value.trim(), updated_at: new Date().toISOString() };
