@@ -802,7 +802,7 @@ let wordsMissing = false; // table « mots » pas encore créée dans Supabase
 let tab = 'extraits';   // onglet affiché : 'extraits' ou 'mots'
 try { const t = localStorage.getItem('tab'); if (t === 'mots' || t === 'jeux') tab = t; } catch (e) { /* ignoré */ }
 const MODES = {
-  jeux: [['livre', '📖 Quel livre ?'], ['definition', '🔤 Quelle définition ?']],
+  jeux: [['livre', '📖 Quel livre ?'], ['auteur', '✍️ Quel auteur ?'], ['definition', '🔤 Quelle définition ?']],
   extraits: [['author', 'Par auteur'], ['book', 'Par livre'], ['recent', 'Récents']],
   mots: [['alpha', 'A → Z'], ['book', 'Par livre'], ['lang', 'Par langue'], ['recent', 'Récents']],
 };
@@ -926,8 +926,13 @@ const pageLabel = (it) => (it.page ? 'p. ' + it.page : '');
 const MIN_JEUX = 5;
 const jeuxOuverts = () => items.length >= MIN_JEUX && words.length >= MIN_JEUX;
 
+// « Quel auteur ? » n'apparaît qu'à partir de 5 auteurs différents (extraits avec texte)
+const MIN_AUTEURS = 5;
+const jeuAuteurOuvert = () => authorPool().size >= MIN_AUTEURS;
+
 function render() {
   $('tabJeux').hidden = !jeuxOuverts() && tab !== 'jeux';
+  if (tab === 'jeux') renderModes();
   const src = tab === 'mots' ? words : items;
   const allTags = tab === 'mots' ? [] : [...new Set(src.flatMap((i) => i.tags || []))].sort(collator.compare);
   if (activeTag && !allTags.includes(activeTag)) activeTag = null;
@@ -986,7 +991,8 @@ function fillDatalists() {
 
 $('search').addEventListener('input', render);
 function renderModes() {
-  $('modes').innerHTML = MODES[tab].map(([m, label]) => `<button data-mode="${m}" class="${modes[tab] === m ? 'on' : ''}">${label}</button>`).join('');
+  const list = tab === 'jeux' ? MODES.jeux.filter(([m]) => m !== 'auteur' || jeuAuteurOuvert() || modes.jeux === 'auteur') : MODES[tab];
+  $('modes').innerHTML = list.map(([m, label]) => `<button data-mode="${m}" class="${modes[tab] === m ? 'on' : ''}">${label}</button>`).join('');
   document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x.dataset.tab === tab));
   document.body.classList.toggle('tab-jeux', tab === 'jeux');
   $('search').placeholder = tab === 'mots' ? 'Rechercher (mot, définition, livre…)' : 'Rechercher (texte, auteur, livre, tag…)';
@@ -1092,9 +1098,10 @@ $('btnAdd').addEventListener('click', () => (tab === 'mots' ? openWordForm(null)
 /* ---------- Jeux (QCM à partir des extraits et des mots de l'utilisateur) ---------- */
 const games = {
   livre: { deck: [], q: null },
+  auteur: { deck: [], q: null },
   definition: { deck: [], q: null },
 };
-const GAME_NAMES = { livre: '« Quel livre ? »', definition: '« Quelle définition ? »' };
+const GAME_NAMES = { livre: '« Quel livre ? »', auteur: '« Quel auteur ? »', definition: '« Quelle définition ? »' };
 const PER_DAY = 5;     // questions par jour et par jeu
 const JEUX = 'jeux';   // table Supabase (voir supabase-jeux.sql)
 // Parties enregistrées : { uid, rows: [{ game, points, played_on }] } ; null = pas encore chargées
@@ -1142,6 +1149,16 @@ function bookPool() {
   }
   return books;
 }
+// Auteurs distincts (« Victor Hugo » = « Hugo, Victor ») qui ont au moins un extrait avec du texte
+function authorPool() {
+  const authors = new Map();
+  for (const it of items) {
+    if (!(it.author || '').trim() || !(it.ocr_text || '').trim()) continue;
+    const k = bioKey(it.author);
+    if (!authors.has(k)) authors.set(k, { key: k, name: upAuthor(it.author) });
+  }
+  return authors;
+}
 function wordPool() {
   return words.filter((w) => w.word && (w.definition || '').trim());
 }
@@ -1164,6 +1181,14 @@ function newQuestion(kind) {
     const right = books.get(norm(it.title));
     const others = shuffle([...books.values()].filter((b) => b.key !== right.key)).slice(0, 3);
     return { kind, item: it, opts: shuffle([right, ...others]).map((b) => ({ key: b.key, label: b.title, sub: upAuthor(b.author) })), answer: right.key, picked: null };
+  }
+  if (kind === 'auteur') {
+    const authors = authorPool();
+    if (authors.size < 2) return null;
+    const it = nextFromDeck(g, items.filter((i) => (i.author || '').trim() && (i.ocr_text || '').trim()));
+    const right = authors.get(bioKey(it.author));
+    const others = shuffle([...authors.values()].filter((a) => a.key !== right.key)).slice(0, 3);
+    return { kind, item: it, opts: shuffle([right, ...others]).map((a) => ({ key: a.key, label: a.name, sub: '' })), answer: right.key, picked: null };
   }
   const pool = wordPool();
   const distinct = new Map(pool.map((w) => [norm(cleanDef(w)), w]));
@@ -1191,20 +1216,24 @@ function renderGame() {
     if (!gameStatsError) loadGameStats();
     return;
   }
+  if (kind === 'auteur' && !jeuAuteurOuvert()) {
+    main.innerHTML = `<div class="empty"><p style="font-size:40px;margin:0">✍️</p><p>« Quel auteur ? » s'ouvre à partir de <b>${MIN_AUTEURS} auteurs différents</b> dans vos extraits (vous en avez ${authorPool().size}).</p></div>`;
+    return;
+  }
   const done = playedToday(kind);
   const left = PER_DAY - done.length;
   const head = `<div class="game-score"><span>🏆 Score total : <b>${totalScore()}</b> points</span><span>Aujourd'hui : ${done.length} / ${PER_DAY}</span></div>`;
 
   // Question gardée telle quelle si les données sont rechargées en arrière-plan
-  if (g.q && !(g.q.kind === 'livre' ? items : words).some((x) => x.id === g.q.item.id)) g.q = null;
+  if (g.q && !(g.q.kind === 'definition' ? words : items).some((x) => x.id === g.q.item.id)) g.q = null;
   if (!g.q && left <= 0) {
     const pts = done.reduce((n, r) => n + r.points, 0);
-    const other = kind === 'livre' ? 'definition' : 'livre';
-    const otherLeft = PER_DAY - playedToday(other).length;
+    const others = MODES.jeux.map(([m]) => m).filter((m) => m !== kind && (m !== 'auteur' || jeuAuteurOuvert()))
+      .map((m) => [m, PER_DAY - playedToday(m).length]).filter(([, n]) => n > 0);
     main.innerHTML = `<div class="game">${head}<div class="empty" style="padding-top:30px"><p style="font-size:40px;margin:0">🎉</p>
       <p>Vous avez joué vos ${PER_DAY} questions ${GAME_NAMES[kind]} aujourd'hui<br>(${done.filter((r) => r.points > 0).length} réussie(s), <b>${pts > 0 ? '+' : ''}${pts} points</b>).</p>
       <p>Revenez demain !</p>
-      ${otherLeft > 0 ? `<div class="actions"><button class="primary" data-game="switch" data-to="${other}">Jouer à ${GAME_NAMES[other]} (${otherLeft} restante${otherLeft > 1 ? 's' : ''})</button></div>` : ''}
+      ${others.map(([m, n]) => `<div class="actions"><button class="primary" data-game="switch" data-to="${m}">Jouer à ${GAME_NAMES[m]} (${n} restante${n > 1 ? 's' : ''})</button></div>`).join('')}
       </div></div>`;
     return;
   }
@@ -1218,8 +1247,8 @@ function renderGame() {
   }
   const answered = q.picked != null;
   const it = q.item;
-  const body = kind === 'livre'
-    ? `<div class="game-q">Question ${done.length + (answered ? 0 : 1)} / ${PER_DAY} · De quel livre vient cet extrait ?</div><div class="quote">${esc(shortText(it.ocr_text))}</div>`
+  const body = kind !== 'definition'
+    ? `<div class="game-q">Question ${done.length + (answered ? 0 : 1)} / ${PER_DAY} · ${kind === 'livre' ? 'De quel livre vient cet extrait ?' : 'Qui a écrit cet extrait ?'}</div><div class="quote">${esc(shortText(it.ocr_text))}</div>`
     : `<div class="game-q">Question ${done.length + (answered ? 0 : 1)} / ${PER_DAY} · Que veut dire ce mot ?</div><div class="game-word">${esc(it.word)}</div>${isFrench(it.language) ? '' : `<div class="hint">(${esc(it.language)})</div>`}`;
   const opts = q.opts.map((o, i) => {
     const cls = !answered ? '' : o.key === q.answer ? 'right' : o.key === q.picked ? 'wrong' : '';
@@ -1230,6 +1259,8 @@ function renderGame() {
     const good = q.picked === q.answer;
     const extra = kind === 'livre'
       ? `« ${esc(it.title)} »${it.author ? ', ' + esc(upAuthor(it.author)) : ''}${it.page ? ', p. ' + esc(it.page) : ''}`
+      : kind === 'auteur'
+      ? `${esc(upAuthor(it.author))}${it.title ? ', « ' + esc(it.title) + ' »' : ''}${it.page ? ', p. ' + esc(it.page) : ''}`
       : `${esc(it.word)} : ${esc(it.definition)}`;
     feedback = `<div class="game-feedback">${good ? '✅ Bravo ! +3 points' : '❌ Raté… −3 points'}</div><p class="hint" style="font-size:14px">${extra}</p>
       <div class="actions"><button class="primary" data-game="next">${left > 0 ? 'Question suivante ›' : 'Voir le bilan du jour'}</button></div>`;
