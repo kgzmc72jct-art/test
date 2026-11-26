@@ -152,6 +152,23 @@
   .login-ok { font-size: 14px; margin-top: 8px; }
   .login-forgot { text-align: right; margin: 6px 0 0; font-size: 14px; }
   .login-ok:empty { display: none; }
+  .report { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 15px; }
+  .report th, .report td { padding: 9px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+  .report th:first-child, .report td:first-child { text-align: left; }
+  .report th { color: var(--muted); font-weight: 600; font-size: 13px; }
+  .report td.zero { color: var(--muted); }
+  .report tfoot td { font-weight: 800; border-bottom: 0; border-top: 2px solid var(--line); }
+  /* Petit mot du rapport : félicitations (champagne) ou encouragement */
+  .cheer { position: relative; overflow: hidden; margin-top: 12px; padding: 16px; border-radius: 18px; border: 1px solid var(--line); background: var(--card); text-align: center; }
+  .cheer .big { font-size: 40px; line-height: 1; }
+  .cheer p { margin: 8px 0 0; line-height: 1.45; }
+  .cheer.bravo { border-color: #e6c25a; background: linear-gradient(160deg, rgba(230,194,90,.22), rgba(230,194,90,.04)); }
+  .cheer.bravo .big span { display: inline-block; animation: trinque 1.6s ease-in-out infinite; }
+  .cheer.bravo .big span:last-child { animation-delay: .2s; }
+  @keyframes trinque { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-12deg) scale(1.1); } 60% { transform: rotate(8deg); } }
+  .bulle { position: absolute; bottom: -12px; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid rgba(240,210,120,.85); background: rgba(255,236,170,.25); animation: monte 3.2s ease-in infinite; pointer-events: none; }
+  @keyframes monte { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-190px) translateX(6px); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .bulle { display: none; } .cheer.bravo .big span { animation: none; } }
   .guide h3 { margin: 18px 0 4px; font-size: 17px; }
   .guide p { margin: 4px 0; line-height: 1.5; }
   .login h2 { text-align: center; font-size: 28px; font-weight: 800; }
@@ -452,6 +469,7 @@
     <div class="section-title">Administrateur : comptes des utilisateurs (lecture seule)</div>
     <div id="accounts"></div>
   </div>
+  <div class="actions"><button id="btnReport">📊 Rapport mensuel</button></div>
   <div class="actions"><button id="btnGuide">📖 Revoir le guide</button></div>
   <div class="actions"><button id="btnPassword">🔑 Changer mon mot de passe</button></div>
   <div class="actions"><button class="danger" id="btnLogout">Se déconnecter</button></div>
@@ -518,6 +536,16 @@
     <div class="actions"><button type="button" id="pwCancel">Annuler</button></div>
     <div class="error" id="pwError"></div>
   </form>
+</section>
+
+<!-- Rapport mensuel : extraits, mots et bios ajoutés chaque mois -->
+<section class="sheet top" id="reportSheet">
+  <div class="bar">
+    <button id="reportClose">‹ Retour</button>
+    <h2>Rapport mensuel</h2>
+    <span style="width:70px"></span>
+  </div>
+  <div id="reportBody"></div>
 </section>
 
 <!-- Configuration manquante -->
@@ -2401,6 +2429,84 @@ $('pwForm').addEventListener('submit', async (e) => {
 if (sb) sb.auth.onAuthStateChange((event) => {
   if (event === 'PASSWORD_RECOVERY' && !$('pwSheet').classList.contains('open')) openPasswordSheet(true);
 });
+
+/* ---------- Rapport mensuel ---------- */
+const monthKey = (d) => { const x = new Date(d); return isNaN(x) ? null : x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
+const monthLabel = (k) => { const [y, m] = k.split('-'); const t = new Date(+y, +m - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }); return t.charAt(0).toUpperCase() + t.slice(1); };
+
+// Félicitations si, ce mois-ci : 3 bios validées ou plus, ou 5 extraits ou plus, ou 5 mots ou plus
+const BRAVO = { b: 3, e: 5, m: 5 };
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const plural = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
+function cheerHTML(cur) {
+  const wins = [];
+  if (cur.e >= BRAVO.e) wins.push(plural(cur.e, 'extrait'));
+  if (cur.m >= BRAVO.m) wins.push(plural(cur.m, 'mot'));
+  if (cur.b >= BRAVO.b) wins.push(plural(cur.b, 'bio'));
+  const fait = [cur.e && plural(cur.e, 'extrait'), cur.m && plural(cur.m, 'mot'), cur.b && plural(cur.b, 'bio')].filter(Boolean);
+  const liste = (a) => a.length > 1 ? a.slice(0, -1).join(', ') + ' et ' + a[a.length - 1] : a[0];
+  if (wins.length) {
+    const bulles = Array.from({ length: 14 }, (_, i) =>
+      `<span class="bulle" style="left:${4 + Math.random() * 92}%;animation-delay:${(i * 0.23).toFixed(2)}s;width:${5 + Math.random() * 7 | 0}px;height:${5 + Math.random() * 7 | 0}px"></span>`).join('');
+    return `<div class="cheer bravo">${bulles}<div class="big"><span>🍾</span> <span>🥂</span></div>
+      <p><b>${pick(['Bravo, quel beau mois de lecture !', 'Champagne ! Superbe mois !', 'Félicitations, vous êtes en feu ce mois-ci !', 'Chapeau bas, lecteur assidu !'])}</b></p>
+      <p>Ce mois-ci : ${liste(fait)}. Ça se fête !</p></div>`;
+  }
+  const manque = [`${BRAVO.e} extraits`, `${BRAVO.m} mots`, `${BRAVO.b} bios`];
+  return `<div class="cheer"><div class="big">📚✨</div>
+    <p><b>${pick(['Chaque page compte, continuez !', 'Belle lecture en cours, on continue ?', 'Petit à petit, le carnet se remplit !', 'Un extrait aujourd\'hui, un trésor demain !'])}</b></p>
+    <p>${fait.length ? `Ce mois-ci : ${liste(fait)}.` : 'Rien d\'ajouté ce mois-ci pour l\'instant.'}<br>
+    Objectif champagne 🍾 : ${manque.join(' ou ')} dans le mois.</p></div>`;
+}
+
+async function openReport() {
+  openSheet('reportSheet');
+  $('reportBody').innerHTML = '<p class="hint">Calcul en cours…</p>';
+  let bios = [];
+  let note = '';
+  if (sb && user) {
+    const { data, error } = await sb.from(BIOS).select('*').eq('user_id', ownerId());
+    if (error) note = /bios|relation|schema cache/i.test(error.message) ? 'Bios non comptées : exécutez supabase-bios.sql dans Supabase.' : 'Bios non comptées : ' + errMsg(error);
+    else bios = data || [];
+  }
+  const rows = new Map(); // « AAAA-MM » → { e, m, b }
+  const bump = (d, field) => {
+    const k = monthKey(d);
+    if (!k) return;
+    if (!rows.has(k)) rows.set(k, { e: 0, m: 0, b: 0 });
+    rows.get(k)[field]++;
+  };
+  items.forEach((it) => bump(it.created_at, 'e'));
+  words.forEach((w) => bump(w.created_at, 'm'));
+  bios.forEach((b) => bump(b.created_at || b.updated_at, 'b'));
+  if (!rows.size) {
+    $('reportBody').innerHTML = '<div class="empty"><p>Rien à afficher pour l\'instant : ajoutez des extraits, des mots ou validez des bios.</p></div>';
+    return;
+  }
+  // Tous les mois depuis le premier ajout jusqu'au mois en cours, du plus récent au plus ancien
+  const keys = [...rows.keys()].sort();
+  const months = [];
+  const end = monthKey(new Date());
+  for (let [y, m] = keys[0].split('-').map(Number); ; m++) {
+    if (m > 12) { m = 1; y++; }
+    const k = y + '-' + String(m).padStart(2, '0');
+    months.push(k);
+    if (k >= end || months.length > 600) break;
+  }
+  const cell = (n) => `<td class="${n ? '' : 'zero'}">${n}</td>`;
+  const cur = rows.get(end) || { e: 0, m: 0, b: 0 };
+  const tot = { e: items.length, m: words.length, b: bios.length };
+  $('reportBody').innerHTML = `${viewing ? `<p class="hint">Compte de ${esc(viewing.email)}</p>` : ''}
+    ${cheerHTML(cur)}
+    <table class="report">
+      <thead><tr><th>Mois</th><th>📖 Extraits</th><th>🔤 Mots</th><th>👤 Bios</th></tr></thead>
+      <tbody>${months.reverse().map((k) => { const r = rows.get(k) || { e: 0, m: 0, b: 0 }; return `<tr><td>${monthLabel(k)}</td>${cell(r.e)}${cell(r.m)}${cell(r.b)}</tr>`; }).join('')}</tbody>
+      <tfoot><tr><td>Total</td><td>${tot.e}</td><td>${tot.m}</td><td>${tot.b}</td></tr></tfoot>
+    </table>
+    <p class="hint" style="margin-top:12px">Bios : seules les bios validées sont comptées.${note ? '<br>⚠️ ' + esc(note) : ''}</p>`;
+}
+$('btnReport').addEventListener('click', openReport);
+$('reportClose').addEventListener('click', () => closeSheet('reportSheet'));
 
 /* ---------- Guide de bienvenue ---------- */
 const guideKey = () => 'guideVu:' + (user ? user.id : '');
