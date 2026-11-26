@@ -235,7 +235,7 @@
   <div class="tabs" id="tabs">
     <button data-tab="extraits" class="on">📖 Extraits</button>
     <button data-tab="mots">🔤 Mots</button>
-    <button data-tab="jeux" id="tabJeux" hidden>🎲 Jeux</button>
+    <button data-tab="jeux" id="tabJeux">🎲 Jeux</button>
   </div>
   <input class="search" id="search" type="search" placeholder="Rechercher (texte, auteur, livre, tag…)">
   <div class="modes" id="modes"></div>
@@ -1026,16 +1026,15 @@ function groupBy(list, keyFn) {
 const byPage = (a, b) => (parseInt(a.page, 10) || 1e9) - (parseInt(b.page, 10) || 1e9) || time(a.created_at) - time(b.created_at);
 const pageLabel = (it) => (it.page ? 'p. ' + it.page : '');
 
-// L'onglet Jeux n'apparaît qu'à partir de 5 extraits et 5 mots
+// Les jeux ne sont disponibles qu'à partir de 5 extraits et 5 mots (sinon un message l'explique)
 const MIN_JEUX = 5;
 const jeuxOuverts = () => items.length >= MIN_JEUX && words.length >= MIN_JEUX;
 
-// « Quel auteur ? » n'apparaît qu'à partir de 5 auteurs différents (extraits et mots)
+// « Quel auteur ? » demande en plus 5 auteurs différents (extraits et mots)
 const MIN_AUTEURS = 5;
 const jeuAuteurOuvert = () => authorPool().size >= MIN_AUTEURS;
 
 function render() {
-  $('tabJeux').hidden = !jeuxOuverts() && tab !== 'jeux';
   if (tab === 'jeux') renderModes();
   const src = tab === 'mots' ? words : items;
   const allTags = tab === 'mots' ? [] : [...new Set(src.flatMap((i) => i.tags || []))].sort(collator.compare);
@@ -1095,7 +1094,7 @@ function fillDatalists() {
 
 $('search').addEventListener('input', render);
 function renderModes() {
-  const list = tab === 'jeux' ? MODES.jeux.filter(([m]) => m !== 'auteur' || jeuAuteurOuvert() || modes.jeux === 'auteur') : MODES[tab];
+  const list = MODES[tab];
   $('modes').innerHTML = list.map(([m, label]) => `<button data-mode="${m}" class="${modes[tab] === m ? 'on' : ''}">${label}</button>`).join('');
   document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x.dataset.tab === tab));
   document.body.classList.toggle('tab-jeux', tab === 'jeux');
@@ -1346,14 +1345,25 @@ function newQuestion(kind) {
     answer: rightKey, picked: null };
 }
 
+// Message « pas encore disponible » : manque = [[nom, minimum demandé, nombre actuel], …]
+function jeuIndisponible(manque, kind) {
+  const noms = manque.map(([nom]) => (/^[aeiouéh]/i.test(nom) ? "d'" : 'de ') + nom);
+  const liste = noms.length > 1 ? noms.slice(0, -1).join(', ') + ' et ' + noms[noms.length - 1] : noms[0];
+  return `<div class="empty"><p style="font-size:40px;margin:0">🎲</p>
+    <p><b>${kind ? GAME_NAMES[kind] + " n'est" : "Les jeux ne sont"} pas encore disponible${kind ? '' : 's'}</b> : pas assez ${liste}.</p>
+    ${manque.map(([, min, n]) => `<p>Il faut au moins <b>${min}</b> (vous en avez ${n}).</p>`).join('')}</div>`;
+}
+
 function renderGame() {
   const kind = modes.jeux;
   const g = games[kind];
   const main = $('list');
   if (viewing) { main.innerHTML = '<div class="empty"><p>Les jeux ne sont disponibles que sur votre propre compte.</p></div>'; return; }
   if (!jeuxOuverts()) {
-    main.innerHTML = `<div class="empty"><p style="font-size:40px;margin:0">🎲</p><p>Les jeux s'ouvrent à partir de <b>${MIN_JEUX} extraits</b> et <b>${MIN_JEUX} mots</b>.</p>
-      <p>Vous avez ${items.length} extrait${items.length > 1 ? 's' : ''} et ${words.length} mot${words.length > 1 ? 's' : ''}.</p></div>`;
+    const manque = [];
+    if (items.length < MIN_JEUX) manque.push(['extraits', MIN_JEUX + ' extraits', items.length]);
+    if (words.length < MIN_JEUX) manque.push(['mots', MIN_JEUX + ' mots', words.length]);
+    main.innerHTML = jeuIndisponible(manque);
     return;
   }
   if (!user || !gameStats || gameStats.uid !== user.id) {
@@ -1361,8 +1371,12 @@ function renderGame() {
     if (!gameStatsError) loadGameStats();
     return;
   }
-  if (kind === 'auteur' && !jeuAuteurOuvert()) {
-    main.innerHTML = `<div class="empty"><p style="font-size:40px;margin:0">✍️</p><p>« Quel auteur ? » s'ouvre à partir de <b>${MIN_AUTEURS} auteurs différents</b> dans vos extraits (vous en avez ${authorPool().size}).</p></div>`;
+  if (kind === 'auteur' && (!jeuAuteurOuvert() || !gameStats.bios.length)) {
+    const manque = [];
+    if (!jeuAuteurOuvert()) manque.push(['auteurs différents', MIN_AUTEURS + ' auteurs différents', authorPool().size]);
+    if (!gameStats.bios.length) manque.push(['bios', '1 bio validée', 0]);
+    main.innerHTML = jeuIndisponible(manque, kind)
+      + (gameStats.bios.length ? '' : `<p class="hint" style="text-align:center;padding:0 16px">Pour valider une bio : ouvrez un extrait, touchez <b>👤 Bio de l'auteur</b> puis <b>✅ Valider</b>.</p>`);
     return;
   }
   const done = playedToday(kind);
